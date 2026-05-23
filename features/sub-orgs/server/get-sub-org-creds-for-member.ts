@@ -28,7 +28,12 @@ export async function getSubOrgCredsForMemberEmail(
 				where: eq(users.email, normalized),
 				columns: { id: true, role: true },
 			})
-			if (user?.id && String(user.role ?? "").trim().toUpperCase() === "ENP") {
+			if (
+				user?.id &&
+				String(user.role ?? "")
+					.trim()
+					.toUpperCase() === "ENP"
+			) {
 				const profile = await db.query.enpProfiles.findFirst({
 					where: eq(enpProfiles.userId, user.id),
 					columns: { doconchainSubOrgId: true },

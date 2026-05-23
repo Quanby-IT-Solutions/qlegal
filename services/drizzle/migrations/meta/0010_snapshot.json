@@ -1,3917 +1,3695 @@
 {
-  "id": "bcd4df2d-a83a-4a6d-b2d8-83ffb592a099",
-  "prevId": "4dd8b6b7-931c-4993-a754-8bb4207c6c80",
-  "version": "7",
-  "dialect": "postgresql",
-  "tables": {
-    "public.appointment_participant": {
-      "name": "appointment_participant",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "appointmentId": {
-          "name": "appointmentId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "appointment_participant_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'ACCEPTED'"
-        },
-        "invitedById": {
-          "name": "invitedById",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "participant_role": {
-          "name": "participant_role",
-          "type": "appointment_participant_role",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PARTICIPANT'"
-        },
-        "acceptedAt": {
-          "name": "acceptedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "declineReason": {
-          "name": "declineReason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "appointment_participants_appointment_id_idx": {
-          "name": "appointment_participants_appointment_id_idx",
-          "columns": [
-            {
-              "expression": "appointmentId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "appointment_participants_user_id_idx": {
-          "name": "appointment_participants_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "appointment_participants_status_idx": {
-          "name": "appointment_participants_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "appointment_participant_appointmentId_appointment_id_fk": {
-          "name": "appointment_participant_appointmentId_appointment_id_fk",
-          "tableFrom": "appointment_participant",
-          "tableTo": "appointment",
-          "columnsFrom": [
-            "appointmentId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "appointment_participant_userId_user_id_fk": {
-          "name": "appointment_participant_userId_user_id_fk",
-          "tableFrom": "appointment_participant",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "appointment_participant_invitedById_user_id_fk": {
-          "name": "appointment_participant_invitedById_user_id_fk",
-          "tableFrom": "appointment_participant",
-          "tableTo": "user",
-          "columnsFrom": [
-            "invitedById"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.appointment": {
-      "name": "appointment",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "meetingId": {
-          "name": "meetingId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "title": {
-          "name": "title",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "type": {
-          "name": "type",
-          "type": "appointment_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "appointment_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PENDING'"
-        },
-        "appointmentDate": {
-          "name": "appointmentDate",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "duration": {
-          "name": "duration",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 60
-        },
-        "modeOfNotarization": {
-          "name": "modeOfNotarization",
-          "type": "varchar(10)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "location": {
-          "name": "location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cancelReason": {
-          "name": "cancelReason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "color": {
-          "name": "color",
-          "type": "varchar(7)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'#F59E0B'"
-        },
-        "allowPublicLink": {
-          "name": "allowPublicLink",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "appointment_userId_user_id_fk": {
-          "name": "appointment_userId_user_id_fk",
-          "tableFrom": "appointment",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "appointment_meetingId_meeting_id_fk": {
-          "name": "appointment_meetingId_meeting_id_fk",
-          "tableFrom": "appointment",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meetingId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.account": {
-      "name": "account",
-      "schema": "",
-      "columns": {
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "providerAccountId": {
-          "name": "providerAccountId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "refreshToken": {
-          "name": "refreshToken",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "accessToken": {
-          "name": "accessToken",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expiresAt": {
-          "name": "expiresAt",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "tokenType": {
-          "name": "tokenType",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "idToken": {
-          "name": "idToken",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sessionState": {
-          "name": "sessionState",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "account_user_id_idx": {
-          "name": "account_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "account_userId_user_id_fk": {
-          "name": "account_userId_user_id_fk",
-          "tableFrom": "account",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "account_provider_providerAccountId_pk": {
-          "name": "account_provider_providerAccountId_pk",
-          "columns": [
-            "provider",
-            "providerAccountId"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.password_reset_token": {
-      "name": "password_reset_token",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token": {
-          "name": "token",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires": {
-          "name": "expires",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "password_reset_token_email_user_email_fk": {
-          "name": "password_reset_token_email_user_email_fk",
-          "tableFrom": "password_reset_token",
-          "tableTo": "user",
-          "columnsFrom": [
-            "email"
-          ],
-          "columnsTo": [
-            "email"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.session": {
-      "name": "session",
-      "schema": "",
-      "columns": {
-        "sessionToken": {
-          "name": "sessionToken",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires": {
-          "name": "expires",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "session_userId_user_id_fk": {
-          "name": "session_userId_user_id_fk",
-          "tableFrom": "session",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.two_factor_confirmation": {
-      "name": "two_factor_confirmation",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "two_factor_confirmation_userId_user_id_fk": {
-          "name": "two_factor_confirmation_userId_user_id_fk",
-          "tableFrom": "two_factor_confirmation",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.two_factor_token": {
-      "name": "two_factor_token",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token": {
-          "name": "token",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires": {
-          "name": "expires",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "two_factor_token_email_user_email_fk": {
-          "name": "two_factor_token_email_user_email_fk",
-          "tableFrom": "two_factor_token",
-          "tableTo": "user",
-          "columnsFrom": [
-            "email"
-          ],
-          "columnsTo": [
-            "email"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.user": {
-      "name": "user",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "emailVerified": {
-          "name": "emailVerified",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "image": {
-          "name": "image",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "password": {
-          "name": "password",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "isTwoFactorEnabled": {
-          "name": "isTwoFactorEnabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "phoneNumber": {
-          "name": "phoneNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "address": {
-          "name": "address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "homeStreet": {
-          "name": "homeStreet",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "barangay": {
-          "name": "barangay",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cityProvince": {
-          "name": "cityProvince",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role": {
-          "name": "role",
-          "type": "user_role",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PRINCIPAL'"
-        },
-        "commissionStatus": {
-          "name": "commissionStatus",
-          "type": "user_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'ACTIVE'"
-        },
-        "kycStatus": {
-          "name": "kycStatus",
-          "type": "kyc_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'NOT_STARTED'"
-        },
-        "kycVerifiedAt": {
-          "name": "kycVerifiedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "user_email_unique": {
-          "name": "user_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.verification_token": {
-      "name": "verification_token",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token": {
-          "name": "token",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires": {
-          "name": "expires",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "verification_token_email_user_email_fk": {
-          "name": "verification_token_email_user_email_fk",
-          "tableFrom": "verification_token",
-          "tableTo": "user",
-          "columnsFrom": [
-            "email"
-          ],
-          "columnsTo": [
-            "email"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.document_signer": {
-      "name": "document_signer",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "documentId": {
-          "name": "documentId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "signerName": {
-          "name": "signerName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "signerAddress": {
-          "name": "signerAddress",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "signerRole": {
-          "name": "signerRole",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'principal'"
-        },
-        "signingOrder": {
-          "name": "signingOrder",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "document_signers_document_id_idx": {
-          "name": "document_signers_document_id_idx",
-          "columns": [
-            {
-              "expression": "documentId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "document_signers_user_id_idx": {
-          "name": "document_signers_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "document_signers_document_user_unique_idx": {
-          "name": "document_signers_document_user_unique_idx",
-          "columns": [
-            {
-              "expression": "documentId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "document_signer_documentId_document_id_fk": {
-          "name": "document_signer_documentId_document_id_fk",
-          "tableFrom": "document_signer",
-          "tableTo": "document",
-          "columnsFrom": [
-            "documentId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "document_signer_userId_user_id_fk": {
-          "name": "document_signer_userId_user_id_fk",
-          "tableFrom": "document_signer",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.document": {
-      "name": "document",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "type": {
-          "name": "type",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size": {
-          "name": "size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "path": {
-          "name": "path",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "''"
-        },
-        "status": {
-          "name": "status",
-          "type": "document_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'UPLOADED'"
-        },
-        "notarization_type": {
-          "name": "notarization_type",
-          "type": "notarization_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "docoChainProjectId": {
-          "name": "docoChainProjectId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "docoChainRedirectUrl": {
-          "name": "docoChainRedirectUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "envelopeId": {
-          "name": "envelopeId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "meetingId": {
-          "name": "meetingId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "order": {
-          "name": "order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "fees": {
-          "name": "fees",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "document_envelopeId_envelope_id_fk": {
-          "name": "document_envelopeId_envelope_id_fk",
-          "tableFrom": "document",
-          "tableTo": "envelope",
-          "columnsFrom": [
-            "envelopeId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "document_meetingId_meeting_id_fk": {
-          "name": "document_meetingId_meeting_id_fk",
-          "tableFrom": "document",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meetingId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.enp_availability": {
-      "name": "enp_availability",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "enpId": {
-          "name": "enpId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'REGULAR'"
-        },
-        "date": {
-          "name": "date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dayOfWeek": {
-          "name": "dayOfWeek",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "startTime": {
-          "name": "startTime",
-          "type": "varchar(5)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "endTime": {
-          "name": "endTime",
-          "type": "varchar(5)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "isAllDays": {
-          "name": "isAllDays",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "isAvailable": {
-          "name": "isAvailable",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": true
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "enp_availability_enpId_user_id_fk": {
-          "name": "enp_availability_enpId_user_id_fk",
-          "tableFrom": "enp_availability",
-          "tableTo": "user",
-          "columnsFrom": [
-            "enpId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.enp_profile": {
-      "name": "enp_profile",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "specialization": {
-          "name": "specialization",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bio": {
-          "name": "bio",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "experience": {
-          "name": "experience",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "languages": {
-          "name": "languages",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "responseTime": {
-          "name": "responseTime",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rating": {
-          "name": "rating",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "reviewCount": {
-          "name": "reviewCount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "commission": {
-          "name": "commission",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "isAvailable": {
-          "name": "isAvailable",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": true
-        },
-        "notaryPublicNumber": {
-          "name": "notaryPublicNumber",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notaryFacilityNumber": {
-          "name": "notaryFacilityNumber",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rollNo": {
-          "name": "rollNo",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rollNoDate": {
-          "name": "rollNoDate",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "commissionNo": {
-          "name": "commissionNo",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "commissionNoValidUntil": {
-          "name": "commissionNoValidUntil",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ptrNo": {
-          "name": "ptrNo",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ptrNoLocation": {
-          "name": "ptrNoLocation",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ptrNoDate": {
-          "name": "ptrNoDate",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ibpNo": {
-          "name": "ibpNo",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ibpNoDate": {
-          "name": "ibpNoDate",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notaryAddress": {
-          "name": "notaryAddress",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mcleNoPeriod": {
-          "name": "mcleNoPeriod",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mcleNo": {
-          "name": "mcleNo",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mcleNoDate": {
-          "name": "mcleNoDate",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "consultationPrice": {
-          "name": "consultationPrice",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acknowledgmentPrice": {
-          "name": "acknowledgmentPrice",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "affirmationPrice": {
-          "name": "affirmationPrice",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "juratPrice": {
-          "name": "juratPrice",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "signatureWitnessingPrice": {
-          "name": "signatureWitnessingPrice",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "enp_profile_user_id_idx": {
-          "name": "enp_profile_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "enp_profile_userId_user_id_fk": {
-          "name": "enp_profile_userId_user_id_fk",
-          "tableFrom": "enp_profile",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "enp_profile_userId_unique": {
-          "name": "enp_profile_userId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "userId"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.envelope": {
-      "name": "envelope",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "token": {
-          "name": "token",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'DRAFT'"
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "envelope_userId_user_id_fk": {
-          "name": "envelope_userId_user_id_fk",
-          "tableFrom": "envelope",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "envelope_token_unique": {
-          "name": "envelope_token_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.id_card_detail": {
-      "name": "id_card_detail",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "documentType": {
-          "name": "documentType",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "documentNumber": {
-          "name": "documentNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "documentCountry": {
-          "name": "documentCountry",
-          "type": "varchar(3)",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'PHL'"
-        },
-        "firstName": {
-          "name": "firstName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "middleName": {
-          "name": "middleName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lastName": {
-          "name": "lastName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fullName": {
-          "name": "fullName",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dateOfBirth": {
-          "name": "dateOfBirth",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "gender": {
-          "name": "gender",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "nationality": {
-          "name": "nationality",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "addressLine1": {
-          "name": "addressLine1",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "addressLine2": {
-          "name": "addressLine2",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "city": {
-          "name": "city",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "province": {
-          "name": "province",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "postalCode": {
-          "name": "postalCode",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "country": {
-          "name": "country",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "issueDate": {
-          "name": "issueDate",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expiryDate": {
-          "name": "expiryDate",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "isExpired": {
-          "name": "isExpired",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "additionalFields": {
-          "name": "additionalFields",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ocrConfidenceScore": {
-          "name": "ocrConfidenceScore",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ocrProvider": {
-          "name": "ocrProvider",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'hyperverge'"
-        },
-        "ocrTransactionId": {
-          "name": "ocrTransactionId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rawOcrData": {
-          "name": "rawOcrData",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "frontImageUrl": {
-          "name": "frontImageUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "backImageUrl": {
-          "name": "backImageUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "faceImageUrl": {
-          "name": "faceImageUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "isVerified": {
-          "name": "isVerified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "verifiedAt": {
-          "name": "verifiedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "verificationMethod": {
-          "name": "verificationMethod",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "id_card_details_user_id_idx": {
-          "name": "id_card_details_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "id_card_details_document_number_idx": {
-          "name": "id_card_details_document_number_idx",
-          "columns": [
-            {
-              "expression": "documentNumber",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "id_card_details_document_type_idx": {
-          "name": "id_card_details_document_type_idx",
-          "columns": [
-            {
-              "expression": "documentType",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "id_card_details_verified_idx": {
-          "name": "id_card_details_verified_idx",
-          "columns": [
-            {
-              "expression": "isVerified",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "id_card_detail_userId_user_id_fk": {
-          "name": "id_card_detail_userId_user_id_fk",
-          "tableFrom": "id_card_detail",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.kyc_session": {
-      "name": "kyc_session",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "transactionId": {
-          "name": "transactionId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sessionType": {
-          "name": "sessionType",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "hostedLink": {
-          "name": "hostedLink",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "hostedLinkCreatedAt": {
-          "name": "hostedLinkCreatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "hostedLinkExpiresAt": {
-          "name": "hostedLinkExpiresAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "kyc_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'NOT_STARTED'"
-        },
-        "idCardDetailId": {
-          "name": "idCardDetailId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "workflowMetadata": {
-          "name": "workflowMetadata",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "verifiedAt": {
-          "name": "verifiedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "kyc_session_user_id_idx": {
-          "name": "kyc_session_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "kyc_session_transaction_id_idx": {
-          "name": "kyc_session_transaction_id_idx",
-          "columns": [
-            {
-              "expression": "transactionId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "kyc_session_status_idx": {
-          "name": "kyc_session_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "kyc_session_created_at_idx": {
-          "name": "kyc_session_created_at_idx",
-          "columns": [
-            {
-              "expression": "createdAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "kyc_session_userId_user_id_fk": {
-          "name": "kyc_session_userId_user_id_fk",
-          "tableFrom": "kyc_session",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "kyc_session_transactionId_unique": {
-          "name": "kyc_session_transactionId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "transactionId"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.legal_registration": {
-      "name": "legal_registration",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "applicantId": {
-          "name": "applicantId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "legal_application_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'DRAFT'"
-        },
-        "citizenship": {
-          "name": "citizenship",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "dateOfBirth": {
-          "name": "dateOfBirth",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "residentialAddress": {
-          "name": "residentialAddress",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workOrBusinessAddress": {
-          "name": "workOrBusinessAddress",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "telephoneNumber": {
-          "name": "telephoneNumber",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mobileNumber": {
-          "name": "mobileNumber",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "emailAddress": {
-          "name": "emailAddress",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "professionalTaxReceiptNumber": {
-          "name": "professionalTaxReceiptNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rollOfAttorneysNumber": {
-          "name": "rollOfAttorneysNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ibpMembershipNumber": {
-          "name": "ibpMembershipNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mcleComplianceNumber": {
-          "name": "mcleComplianceNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ulasComplianceNumber": {
-          "name": "ulasComplianceNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "obcCertificationUrl": {
-          "name": "obcCertificationUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ibpCertificationUrl": {
-          "name": "ibpCertificationUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "passportPhotoUrl": {
-          "name": "passportPhotoUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "paymentProofUrl": {
-          "name": "paymentProofUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enfProviderCertificationUrl": {
-          "name": "enfProviderCertificationUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "undertakingElectronicNotarialActs": {
-          "name": "undertakingElectronicNotarialActs",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "undertakingDataSharingGuidelines": {
-          "name": "undertakingDataSharingGuidelines",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "electronicSignatureApplied": {
-          "name": "electronicSignatureApplied",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "electronicSignatureUrl": {
-          "name": "electronicSignatureUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "submittedAt": {
-          "name": "submittedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewedAt": {
-          "name": "reviewedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "approvedAt": {
-          "name": "approvedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rejectedAt": {
-          "name": "rejectedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewedBy": {
-          "name": "reviewedBy",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "remarks": {
-          "name": "remarks",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "legal_registration_status_idx": {
-          "name": "legal_registration_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "legal_registration_applicant_id_idx": {
-          "name": "legal_registration_applicant_id_idx",
-          "columns": [
-            {
-              "expression": "applicantId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "legal_registration_applicantId_user_id_fk": {
-          "name": "legal_registration_applicantId_user_id_fk",
-          "tableFrom": "legal_registration",
-          "tableTo": "user",
-          "columnsFrom": [
-            "applicantId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "legal_registration_applicantId_unique": {
-          "name": "legal_registration_applicantId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "applicantId"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.liveness_validation": {
-      "name": "liveness_validation",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "meetingId": {
-          "name": "meetingId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "transactionId": {
-          "name": "transactionId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "attemptNumber": {
-          "name": "attemptNumber",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "status": {
-          "name": "status",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "errorMessage": {
-          "name": "errorMessage",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decisionJson": {
-          "name": "decisionJson",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rawResultJson": {
-          "name": "rawResultJson",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "liveness_validation_user_id_idx": {
-          "name": "liveness_validation_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "liveness_validation_meeting_id_idx": {
-          "name": "liveness_validation_meeting_id_idx",
-          "columns": [
-            {
-              "expression": "meetingId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "liveness_validation_transaction_id_idx": {
-          "name": "liveness_validation_transaction_id_idx",
-          "columns": [
-            {
-              "expression": "transactionId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "liveness_validation_status_idx": {
-          "name": "liveness_validation_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "liveness_validation_created_at_idx": {
-          "name": "liveness_validation_created_at_idx",
-          "columns": [
-            {
-              "expression": "createdAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "liveness_validation_updated_at_idx": {
-          "name": "liveness_validation_updated_at_idx",
-          "columns": [
-            {
-              "expression": "updatedAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "liveness_validation_user_meeting_idx": {
-          "name": "liveness_validation_user_meeting_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "meetingId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "liveness_validation_userId_user_id_fk": {
-          "name": "liveness_validation_userId_user_id_fk",
-          "tableFrom": "liveness_validation",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "liveness_validation_meetingId_meeting_id_fk": {
-          "name": "liveness_validation_meetingId_meeting_id_fk",
-          "tableFrom": "liveness_validation",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meetingId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "liveness_validation_transactionId_unique": {
-          "name": "liveness_validation_transactionId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "transactionId"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.meeting": {
-      "name": "meeting",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "roomId": {
-          "name": "roomId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "isDocumentOrderLocked": {
-          "name": "isDocumentOrderLocked",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "createdById": {
-          "name": "createdById",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "meetings_room_id_idx": {
-          "name": "meetings_room_id_idx",
-          "columns": [
-            {
-              "expression": "roomId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "meetings_created_by_idx": {
-          "name": "meetings_created_by_idx",
-          "columns": [
-            {
-              "expression": "createdById",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "meeting_createdById_user_id_fk": {
-          "name": "meeting_createdById_user_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "user",
-          "columnsFrom": [
-            "createdById"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.message_attachment": {
-      "name": "message_attachment",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "conversationId": {
-          "name": "conversationId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "uploadedBy": {
-          "name": "uploadedBy",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fileName": {
-          "name": "fileName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fileSize": {
-          "name": "fileSize",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fileType": {
-          "name": "fileType",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filePath": {
-          "name": "filePath",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fileUrl": {
-          "name": "fileUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "uploadType": {
-          "name": "uploadType",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'general'"
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "message_attachment_conversation_id_idx": {
-          "name": "message_attachment_conversation_id_idx",
-          "columns": [
-            {
-              "expression": "conversationId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "message_attachment_upload_type_idx": {
-          "name": "message_attachment_upload_type_idx",
-          "columns": [
-            {
-              "expression": "uploadType",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "message_attachment_created_at_idx": {
-          "name": "message_attachment_created_at_idx",
-          "columns": [
-            {
-              "expression": "createdAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "message_attachment_conversationId_conversation_id_fk": {
-          "name": "message_attachment_conversationId_conversation_id_fk",
-          "tableFrom": "message_attachment",
-          "tableTo": "conversation",
-          "columnsFrom": [
-            "conversationId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "message_attachment_uploadedBy_user_id_fk": {
-          "name": "message_attachment_uploadedBy_user_id_fk",
-          "tableFrom": "message_attachment",
-          "tableTo": "user",
-          "columnsFrom": [
-            "uploadedBy"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.conversation_participant": {
-      "name": "conversation_participant",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "conversationId": {
-          "name": "conversationId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "userId": {
-          "name": "userId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "joinedAt": {
-          "name": "joinedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "lastReadAt": {
-          "name": "lastReadAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "conversation_participant_conversation_id_idx": {
-          "name": "conversation_participant_conversation_id_idx",
-          "columns": [
-            {
-              "expression": "conversationId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "conversation_participant_user_id_idx": {
-          "name": "conversation_participant_user_id_idx",
-          "columns": [
-            {
-              "expression": "userId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "conversation_participant_conversationId_conversation_id_fk": {
-          "name": "conversation_participant_conversationId_conversation_id_fk",
-          "tableFrom": "conversation_participant",
-          "tableTo": "conversation",
-          "columnsFrom": [
-            "conversationId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "conversation_participant_userId_user_id_fk": {
-          "name": "conversation_participant_userId_user_id_fk",
-          "tableFrom": "conversation_participant",
-          "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.conversation": {
-      "name": "conversation",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "conversation_updated_at_idx": {
-          "name": "conversation_updated_at_idx",
-          "columns": [
-            {
-              "expression": "updatedAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.message": {
-      "name": "message",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "conversationId": {
-          "name": "conversationId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "senderId": {
-          "name": "senderId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "messageType": {
-          "name": "messageType",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'text'"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "message_conversation_id_idx": {
-          "name": "message_conversation_id_idx",
-          "columns": [
-            {
-              "expression": "conversationId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "message_created_at_idx": {
-          "name": "message_created_at_idx",
-          "columns": [
-            {
-              "expression": "createdAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "message_conversationId_conversation_id_fk": {
-          "name": "message_conversationId_conversation_id_fk",
-          "tableFrom": "message",
-          "tableTo": "conversation",
-          "columnsFrom": [
-            "conversationId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "message_senderId_user_id_fk": {
-          "name": "message_senderId_user_id_fk",
-          "tableFrom": "message",
-          "tableTo": "user",
-          "columnsFrom": [
-            "senderId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.notarial_act": {
-      "name": "notarial_act",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "notarialBookId": {
-          "name": "notarialBookId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actType": {
-          "name": "actType",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "documentId": {
-          "name": "documentId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "docoChainProjectUuid": {
-          "name": "docoChainProjectUuid",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "principalName": {
-          "name": "principalName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "principalIdNumber": {
-          "name": "principalIdNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "principalAddress": {
-          "name": "principalAddress",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "principalIdImageBase64": {
-          "name": "principalIdImageBase64",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "principalIdType": {
-          "name": "principalIdType",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "witnessName": {
-          "name": "witnessName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "witnessIdNumber": {
-          "name": "witnessIdNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "enpName": {
-          "name": "enpName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enpRollNumber": {
-          "name": "enpRollNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "executedAt": {
-          "name": "executedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "meetingEndedAt": {
-          "name": "meetingEndedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "location": {
-          "name": "location",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ipAddress": {
-          "name": "ipAddress",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "workflow": {
-          "name": "workflow",
-          "type": "varchar(10)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "locationStatement": {
-          "name": "locationStatement",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "documentName": {
-          "name": "documentName",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "documentDescription": {
-          "name": "documentDescription",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "passportData": {
-          "name": "passportData",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "signersData": {
-          "name": "signersData",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "certificateNumber": {
-          "name": "certificateNumber",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "certificateUrl": {
-          "name": "certificateUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "syncedToSupremeCourt": {
-          "name": "syncedToSupremeCourt",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "syncedAt": {
-          "name": "syncedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supremeCourtRegistryId": {
-          "name": "supremeCourtRegistryId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "notarial_act_notarial_book_id_idx": {
-          "name": "notarial_act_notarial_book_id_idx",
-          "columns": [
-            {
-              "expression": "notarialBookId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_executed_at_idx": {
-          "name": "notarial_act_executed_at_idx",
-          "columns": [
-            {
-              "expression": "executedAt",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_document_id_idx": {
-          "name": "notarial_act_document_id_idx",
-          "columns": [
-            {
-              "expression": "documentId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_doco_chain_uuid_idx": {
-          "name": "notarial_act_doco_chain_uuid_idx",
-          "columns": [
-            {
-              "expression": "docoChainProjectUuid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_principal_name_idx": {
-          "name": "notarial_act_principal_name_idx",
-          "columns": [
-            {
-              "expression": "principalName",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_certificate_number_idx": {
-          "name": "notarial_act_certificate_number_idx",
-          "columns": [
-            {
-              "expression": "certificateNumber",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_enp_name_idx": {
-          "name": "notarial_act_enp_name_idx",
-          "columns": [
-            {
-              "expression": "enpName",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_act_type_idx": {
-          "name": "notarial_act_act_type_idx",
-          "columns": [
-            {
-              "expression": "actType",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarial_act_workflow_idx": {
-          "name": "notarial_act_workflow_idx",
-          "columns": [
-            {
-              "expression": "workflow",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "notarial_act_notarialBookId_notarial_book_id_fk": {
-          "name": "notarial_act_notarialBookId_notarial_book_id_fk",
-          "tableFrom": "notarial_act",
-          "tableTo": "notarial_book",
-          "columnsFrom": [
-            "notarialBookId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "notarial_act_documentId_document_id_fk": {
-          "name": "notarial_act_documentId_document_id_fk",
-          "tableFrom": "notarial_act",
-          "tableTo": "document",
-          "columnsFrom": [
-            "documentId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.notarial_book": {
-      "name": "notarial_book",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "enpId": {
-          "name": "enpId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enfId": {
-          "name": "enfId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "syncedToSupremeCourt": {
-          "name": "syncedToSupremeCourt",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
-        },
-        "syncedAt": {
-          "name": "syncedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "notarial_book_enp_id_idx": {
-          "name": "notarial_book_enp_id_idx",
-          "columns": [
-            {
-              "expression": "enpId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "notarial_book_enpId_user_id_fk": {
-          "name": "notarial_book_enpId_user_id_fk",
-          "tableFrom": "notarial_book",
-          "tableTo": "user",
-          "columnsFrom": [
-            "enpId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.notarization_request": {
-      "name": "notarization_request",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "principalId": {
-          "name": "principalId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enpId": {
-          "name": "enpId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "workflow": {
-          "name": "workflow",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "priority": {
-          "name": "priority",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'NORMAL'"
-        },
-        "status": {
-          "name": "status",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PENDING'"
-        },
-        "appointmentId": {
-          "name": "appointmentId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rejectReason": {
-          "name": "rejectReason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "notarization_requests_principal_id_idx": {
-          "name": "notarization_requests_principal_id_idx",
-          "columns": [
-            {
-              "expression": "principalId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarization_requests_enp_id_idx": {
-          "name": "notarization_requests_enp_id_idx",
-          "columns": [
-            {
-              "expression": "enpId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarization_requests_status_idx": {
-          "name": "notarization_requests_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notarization_requests_workflow_idx": {
-          "name": "notarization_requests_workflow_idx",
-          "columns": [
-            {
-              "expression": "workflow",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "notarization_request_principalId_user_id_fk": {
-          "name": "notarization_request_principalId_user_id_fk",
-          "tableFrom": "notarization_request",
-          "tableTo": "user",
-          "columnsFrom": [
-            "principalId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "notarization_request_enpId_user_id_fk": {
-          "name": "notarization_request_enpId_user_id_fk",
-          "tableFrom": "notarization_request",
-          "tableTo": "user",
-          "columnsFrom": [
-            "enpId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.signature_request": {
-      "name": "signature_request",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "meetingId": {
-          "name": "meetingId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "documentId": {
-          "name": "documentId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "requesterId": {
-          "name": "requesterId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "signerId": {
-          "name": "signerId",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PENDING'"
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "signedAt": {
-          "name": "signedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "signature_requests_meeting_id_idx": {
-          "name": "signature_requests_meeting_id_idx",
-          "columns": [
-            {
-              "expression": "meetingId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "signature_requests_signer_id_idx": {
-          "name": "signature_requests_signer_id_idx",
-          "columns": [
-            {
-              "expression": "signerId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "signature_requests_status_idx": {
-          "name": "signature_requests_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "signature_request_meetingId_meeting_id_fk": {
-          "name": "signature_request_meetingId_meeting_id_fk",
-          "tableFrom": "signature_request",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meetingId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "signature_request_documentId_document_id_fk": {
-          "name": "signature_request_documentId_document_id_fk",
-          "tableFrom": "signature_request",
-          "tableTo": "document",
-          "columnsFrom": [
-            "documentId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "signature_request_requesterId_user_id_fk": {
-          "name": "signature_request_requesterId_user_id_fk",
-          "tableFrom": "signature_request",
-          "tableTo": "user",
-          "columnsFrom": [
-            "requesterId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "signature_request_signerId_user_id_fk": {
-          "name": "signature_request_signerId_user_id_fk",
-          "tableFrom": "signature_request",
-          "tableTo": "user",
-          "columnsFrom": [
-            "signerId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    }
-  },
-  "enums": {
-    "public.appointment_participant_role": {
-      "name": "appointment_participant_role",
-      "schema": "public",
-      "values": [
-        "HOST",
-        "PARTICIPANT"
-      ]
-    },
-    "public.appointment_participant_status": {
-      "name": "appointment_participant_status",
-      "schema": "public",
-      "values": [
-        "PENDING",
-        "ACCEPTED",
-        "DECLINED"
-      ]
-    },
-    "public.appointment_status": {
-      "name": "appointment_status",
-      "schema": "public",
-      "values": [
-        "PENDING",
-        "CONFIRMED",
-        "ONGOING",
-        "CANCELLED",
-        "COMPLETED"
-      ]
-    },
-    "public.appointment_type": {
-      "name": "appointment_type",
-      "schema": "public",
-      "values": [
-        "NOTARIZATION",
-        "CONSULTATION"
-      ]
-    },
-    "public.document_status": {
-      "name": "document_status",
-      "schema": "public",
-      "values": [
-        "UPLOADED",
-        "PROCESSING",
-        "READY",
-        "ERROR"
-      ]
-    },
-    "public.enp_availability_type": {
-      "name": "enp_availability_type",
-      "schema": "public",
-      "values": [
-        "REGULAR",
-        "BLOCKED",
-        "CUSTOM",
-        "RECURRING_BLOCKED"
-      ]
-    },
-    "public.kyc_status": {
-      "name": "kyc_status",
-      "schema": "public",
-      "values": [
-        "NOT_STARTED",
-        "PENDING",
-        "VERIFIED",
-        "REJECTED"
-      ]
-    },
-    "public.legal_application_status": {
-      "name": "legal_application_status",
-      "schema": "public",
-      "values": [
-        "DRAFT",
-        "PENDING",
-        "UNDER_REVIEW",
-        "APPROVED",
-        "REJECTED"
-      ]
-    },
-    "public.notarization_type": {
-      "name": "notarization_type",
-      "schema": "public",
-      "values": [
-        "ACKNOWLEDGMENT",
-        "AFFIRMATION",
-        "JURAT",
-        "SIGNATURE_WITNESSING"
-      ]
-    },
-    "public.user_role": {
-      "name": "user_role",
-      "schema": "public",
-      "values": [
-        "ENP",
-        "PRINCIPAL",
-        "ENA",
-        "ADMIN"
-      ]
-    },
-    "public.user_status": {
-      "name": "user_status",
-      "schema": "public",
-      "values": [
-        "ACTIVE",
-        "PENDING",
-        "SUSPENDED"
-      ]
-    }
-  },
-  "schemas": {},
-  "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
-  "_meta": {
-    "columns": {},
-    "schemas": {},
-    "tables": {}
-  }
+	"id": "bcd4df2d-a83a-4a6d-b2d8-83ffb592a099",
+	"prevId": "4dd8b6b7-931c-4993-a754-8bb4207c6c80",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.appointment_participant": {
+			"name": "appointment_participant",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"appointmentId": {
+					"name": "appointmentId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "appointment_participant_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'ACCEPTED'"
+				},
+				"invitedById": {
+					"name": "invitedById",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"participant_role": {
+					"name": "participant_role",
+					"type": "appointment_participant_role",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'PARTICIPANT'"
+				},
+				"acceptedAt": {
+					"name": "acceptedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"declineReason": {
+					"name": "declineReason",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"appointment_participants_appointment_id_idx": {
+					"name": "appointment_participants_appointment_id_idx",
+					"columns": [
+						{
+							"expression": "appointmentId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"appointment_participants_user_id_idx": {
+					"name": "appointment_participants_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"appointment_participants_status_idx": {
+					"name": "appointment_participants_status_idx",
+					"columns": [
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"appointment_participant_appointmentId_appointment_id_fk": {
+					"name": "appointment_participant_appointmentId_appointment_id_fk",
+					"tableFrom": "appointment_participant",
+					"tableTo": "appointment",
+					"columnsFrom": ["appointmentId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"appointment_participant_userId_user_id_fk": {
+					"name": "appointment_participant_userId_user_id_fk",
+					"tableFrom": "appointment_participant",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"appointment_participant_invitedById_user_id_fk": {
+					"name": "appointment_participant_invitedById_user_id_fk",
+					"tableFrom": "appointment_participant",
+					"tableTo": "user",
+					"columnsFrom": ["invitedById"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.appointment": {
+			"name": "appointment",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"meetingId": {
+					"name": "meetingId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"title": {
+					"name": "title",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"type": {
+					"name": "type",
+					"type": "appointment_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "appointment_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'PENDING'"
+				},
+				"appointmentDate": {
+					"name": "appointmentDate",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"duration": {
+					"name": "duration",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 60
+				},
+				"modeOfNotarization": {
+					"name": "modeOfNotarization",
+					"type": "varchar(10)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"location": {
+					"name": "location",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"cancelReason": {
+					"name": "cancelReason",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"color": {
+					"name": "color",
+					"type": "varchar(7)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'#F59E0B'"
+				},
+				"allowPublicLink": {
+					"name": "allowPublicLink",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"appointment_userId_user_id_fk": {
+					"name": "appointment_userId_user_id_fk",
+					"tableFrom": "appointment",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"appointment_meetingId_meeting_id_fk": {
+					"name": "appointment_meetingId_meeting_id_fk",
+					"tableFrom": "appointment",
+					"tableTo": "meeting",
+					"columnsFrom": ["meetingId"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.account": {
+			"name": "account",
+			"schema": "",
+			"columns": {
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"type": {
+					"name": "type",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider": {
+					"name": "provider",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"providerAccountId": {
+					"name": "providerAccountId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"refreshToken": {
+					"name": "refreshToken",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"accessToken": {
+					"name": "accessToken",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"expiresAt": {
+					"name": "expiresAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"tokenType": {
+					"name": "tokenType",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"scope": {
+					"name": "scope",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"idToken": {
+					"name": "idToken",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"sessionState": {
+					"name": "sessionState",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"account_user_id_idx": {
+					"name": "account_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"account_userId_user_id_fk": {
+					"name": "account_userId_user_id_fk",
+					"tableFrom": "account",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"account_provider_providerAccountId_pk": {
+					"name": "account_provider_providerAccountId_pk",
+					"columns": ["provider", "providerAccountId"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.password_reset_token": {
+			"name": "password_reset_token",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"email": {
+					"name": "email",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"token": {
+					"name": "token",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires": {
+					"name": "expires",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"password_reset_token_email_user_email_fk": {
+					"name": "password_reset_token_email_user_email_fk",
+					"tableFrom": "password_reset_token",
+					"tableTo": "user",
+					"columnsFrom": ["email"],
+					"columnsTo": ["email"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.session": {
+			"name": "session",
+			"schema": "",
+			"columns": {
+				"sessionToken": {
+					"name": "sessionToken",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires": {
+					"name": "expires",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"session_userId_user_id_fk": {
+					"name": "session_userId_user_id_fk",
+					"tableFrom": "session",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.two_factor_confirmation": {
+			"name": "two_factor_confirmation",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"two_factor_confirmation_userId_user_id_fk": {
+					"name": "two_factor_confirmation_userId_user_id_fk",
+					"tableFrom": "two_factor_confirmation",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.two_factor_token": {
+			"name": "two_factor_token",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"email": {
+					"name": "email",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"token": {
+					"name": "token",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires": {
+					"name": "expires",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"two_factor_token_email_user_email_fk": {
+					"name": "two_factor_token_email_user_email_fk",
+					"tableFrom": "two_factor_token",
+					"tableTo": "user",
+					"columnsFrom": ["email"],
+					"columnsTo": ["email"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.user": {
+			"name": "user",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"email": {
+					"name": "email",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"emailVerified": {
+					"name": "emailVerified",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"image": {
+					"name": "image",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"password": {
+					"name": "password",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"isTwoFactorEnabled": {
+					"name": "isTwoFactorEnabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"phoneNumber": {
+					"name": "phoneNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"address": {
+					"name": "address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"homeStreet": {
+					"name": "homeStreet",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"barangay": {
+					"name": "barangay",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"cityProvince": {
+					"name": "cityProvince",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"role": {
+					"name": "role",
+					"type": "user_role",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'PRINCIPAL'"
+				},
+				"commissionStatus": {
+					"name": "commissionStatus",
+					"type": "user_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'ACTIVE'"
+				},
+				"kycStatus": {
+					"name": "kycStatus",
+					"type": "kyc_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "'NOT_STARTED'"
+				},
+				"kycVerifiedAt": {
+					"name": "kycVerifiedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"user_email_unique": {
+					"name": "user_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.verification_token": {
+			"name": "verification_token",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"email": {
+					"name": "email",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"token": {
+					"name": "token",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires": {
+					"name": "expires",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"verification_token_email_user_email_fk": {
+					"name": "verification_token_email_user_email_fk",
+					"tableFrom": "verification_token",
+					"tableTo": "user",
+					"columnsFrom": ["email"],
+					"columnsTo": ["email"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.document_signer": {
+			"name": "document_signer",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"documentId": {
+					"name": "documentId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"signerName": {
+					"name": "signerName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"signerAddress": {
+					"name": "signerAddress",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"signerRole": {
+					"name": "signerRole",
+					"type": "varchar(20)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'principal'"
+				},
+				"signingOrder": {
+					"name": "signingOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"document_signers_document_id_idx": {
+					"name": "document_signers_document_id_idx",
+					"columns": [
+						{
+							"expression": "documentId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"document_signers_user_id_idx": {
+					"name": "document_signers_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"document_signers_document_user_unique_idx": {
+					"name": "document_signers_document_user_unique_idx",
+					"columns": [
+						{
+							"expression": "documentId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"document_signer_documentId_document_id_fk": {
+					"name": "document_signer_documentId_document_id_fk",
+					"tableFrom": "document_signer",
+					"tableTo": "document",
+					"columnsFrom": ["documentId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"document_signer_userId_user_id_fk": {
+					"name": "document_signer_userId_user_id_fk",
+					"tableFrom": "document_signer",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.document": {
+			"name": "document",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"type": {
+					"name": "type",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"size": {
+					"name": "size",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"path": {
+					"name": "path",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "''"
+				},
+				"status": {
+					"name": "status",
+					"type": "document_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'UPLOADED'"
+				},
+				"notarization_type": {
+					"name": "notarization_type",
+					"type": "notarization_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"docoChainProjectId": {
+					"name": "docoChainProjectId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"docoChainRedirectUrl": {
+					"name": "docoChainRedirectUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"envelopeId": {
+					"name": "envelopeId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"meetingId": {
+					"name": "meetingId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"order": {
+					"name": "order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"default": 0
+				},
+				"fees": {
+					"name": "fees",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"document_envelopeId_envelope_id_fk": {
+					"name": "document_envelopeId_envelope_id_fk",
+					"tableFrom": "document",
+					"tableTo": "envelope",
+					"columnsFrom": ["envelopeId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"document_meetingId_meeting_id_fk": {
+					"name": "document_meetingId_meeting_id_fk",
+					"tableFrom": "document",
+					"tableTo": "meeting",
+					"columnsFrom": ["meetingId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.enp_availability": {
+			"name": "enp_availability",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"enpId": {
+					"name": "enpId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"type": {
+					"name": "type",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'REGULAR'"
+				},
+				"date": {
+					"name": "date",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"dayOfWeek": {
+					"name": "dayOfWeek",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"startTime": {
+					"name": "startTime",
+					"type": "varchar(5)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"endTime": {
+					"name": "endTime",
+					"type": "varchar(5)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"reason": {
+					"name": "reason",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"isAllDays": {
+					"name": "isAllDays",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"isAvailable": {
+					"name": "isAvailable",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"enp_availability_enpId_user_id_fk": {
+					"name": "enp_availability_enpId_user_id_fk",
+					"tableFrom": "enp_availability",
+					"tableTo": "user",
+					"columnsFrom": ["enpId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.enp_profile": {
+			"name": "enp_profile",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"specialization": {
+					"name": "specialization",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"bio": {
+					"name": "bio",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"experience": {
+					"name": "experience",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"languages": {
+					"name": "languages",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"responseTime": {
+					"name": "responseTime",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rating": {
+					"name": "rating",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false,
+					"default": 0
+				},
+				"reviewCount": {
+					"name": "reviewCount",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"default": 0
+				},
+				"commission": {
+					"name": "commission",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false,
+					"default": 0
+				},
+				"isAvailable": {
+					"name": "isAvailable",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": true
+				},
+				"notaryPublicNumber": {
+					"name": "notaryPublicNumber",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"notaryFacilityNumber": {
+					"name": "notaryFacilityNumber",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rollNo": {
+					"name": "rollNo",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rollNoDate": {
+					"name": "rollNoDate",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"commissionNo": {
+					"name": "commissionNo",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"commissionNoValidUntil": {
+					"name": "commissionNoValidUntil",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ptrNo": {
+					"name": "ptrNo",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ptrNoLocation": {
+					"name": "ptrNoLocation",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ptrNoDate": {
+					"name": "ptrNoDate",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ibpNo": {
+					"name": "ibpNo",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ibpNoDate": {
+					"name": "ibpNoDate",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"notaryAddress": {
+					"name": "notaryAddress",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"mcleNoPeriod": {
+					"name": "mcleNoPeriod",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"mcleNo": {
+					"name": "mcleNo",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"mcleNoDate": {
+					"name": "mcleNoDate",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"consultationPrice": {
+					"name": "consultationPrice",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"acknowledgmentPrice": {
+					"name": "acknowledgmentPrice",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"affirmationPrice": {
+					"name": "affirmationPrice",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"juratPrice": {
+					"name": "juratPrice",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"signatureWitnessingPrice": {
+					"name": "signatureWitnessingPrice",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"enp_profile_user_id_idx": {
+					"name": "enp_profile_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"enp_profile_userId_user_id_fk": {
+					"name": "enp_profile_userId_user_id_fk",
+					"tableFrom": "enp_profile",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"enp_profile_userId_unique": {
+					"name": "enp_profile_userId_unique",
+					"nullsNotDistinct": false,
+					"columns": ["userId"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.envelope": {
+			"name": "envelope",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"token": {
+					"name": "token",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"title": {
+					"name": "title",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"status": {
+					"name": "status",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'DRAFT'"
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"envelope_userId_user_id_fk": {
+					"name": "envelope_userId_user_id_fk",
+					"tableFrom": "envelope",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"envelope_token_unique": {
+					"name": "envelope_token_unique",
+					"nullsNotDistinct": false,
+					"columns": ["token"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.id_card_detail": {
+			"name": "id_card_detail",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"documentType": {
+					"name": "documentType",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"documentNumber": {
+					"name": "documentNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"documentCountry": {
+					"name": "documentCountry",
+					"type": "varchar(3)",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "'PHL'"
+				},
+				"firstName": {
+					"name": "firstName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"middleName": {
+					"name": "middleName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"lastName": {
+					"name": "lastName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"fullName": {
+					"name": "fullName",
+					"type": "varchar(500)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"dateOfBirth": {
+					"name": "dateOfBirth",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"gender": {
+					"name": "gender",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"nationality": {
+					"name": "nationality",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"addressLine1": {
+					"name": "addressLine1",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"addressLine2": {
+					"name": "addressLine2",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"city": {
+					"name": "city",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"province": {
+					"name": "province",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"postalCode": {
+					"name": "postalCode",
+					"type": "varchar(20)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"country": {
+					"name": "country",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"issueDate": {
+					"name": "issueDate",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"expiryDate": {
+					"name": "expiryDate",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"isExpired": {
+					"name": "isExpired",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"additionalFields": {
+					"name": "additionalFields",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ocrConfidenceScore": {
+					"name": "ocrConfidenceScore",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ocrProvider": {
+					"name": "ocrProvider",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "'hyperverge'"
+				},
+				"ocrTransactionId": {
+					"name": "ocrTransactionId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rawOcrData": {
+					"name": "rawOcrData",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"frontImageUrl": {
+					"name": "frontImageUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"backImageUrl": {
+					"name": "backImageUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"faceImageUrl": {
+					"name": "faceImageUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"isVerified": {
+					"name": "isVerified",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"verifiedAt": {
+					"name": "verifiedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"verificationMethod": {
+					"name": "verificationMethod",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"id_card_details_user_id_idx": {
+					"name": "id_card_details_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"id_card_details_document_number_idx": {
+					"name": "id_card_details_document_number_idx",
+					"columns": [
+						{
+							"expression": "documentNumber",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"id_card_details_document_type_idx": {
+					"name": "id_card_details_document_type_idx",
+					"columns": [
+						{
+							"expression": "documentType",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"id_card_details_verified_idx": {
+					"name": "id_card_details_verified_idx",
+					"columns": [
+						{
+							"expression": "isVerified",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"id_card_detail_userId_user_id_fk": {
+					"name": "id_card_detail_userId_user_id_fk",
+					"tableFrom": "id_card_detail",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.kyc_session": {
+			"name": "kyc_session",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"transactionId": {
+					"name": "transactionId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"sessionType": {
+					"name": "sessionType",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"hostedLink": {
+					"name": "hostedLink",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"hostedLinkCreatedAt": {
+					"name": "hostedLinkCreatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"hostedLinkExpiresAt": {
+					"name": "hostedLinkExpiresAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"status": {
+					"name": "status",
+					"type": "kyc_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'NOT_STARTED'"
+				},
+				"idCardDetailId": {
+					"name": "idCardDetailId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"workflowMetadata": {
+					"name": "workflowMetadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"verifiedAt": {
+					"name": "verifiedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"kyc_session_user_id_idx": {
+					"name": "kyc_session_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"kyc_session_transaction_id_idx": {
+					"name": "kyc_session_transaction_id_idx",
+					"columns": [
+						{
+							"expression": "transactionId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"kyc_session_status_idx": {
+					"name": "kyc_session_status_idx",
+					"columns": [
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"kyc_session_created_at_idx": {
+					"name": "kyc_session_created_at_idx",
+					"columns": [
+						{
+							"expression": "createdAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"kyc_session_userId_user_id_fk": {
+					"name": "kyc_session_userId_user_id_fk",
+					"tableFrom": "kyc_session",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"kyc_session_transactionId_unique": {
+					"name": "kyc_session_transactionId_unique",
+					"nullsNotDistinct": false,
+					"columns": ["transactionId"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.legal_registration": {
+			"name": "legal_registration",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"applicantId": {
+					"name": "applicantId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "legal_application_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'DRAFT'"
+				},
+				"citizenship": {
+					"name": "citizenship",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"dateOfBirth": {
+					"name": "dateOfBirth",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"residentialAddress": {
+					"name": "residentialAddress",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"workOrBusinessAddress": {
+					"name": "workOrBusinessAddress",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"telephoneNumber": {
+					"name": "telephoneNumber",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"mobileNumber": {
+					"name": "mobileNumber",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"emailAddress": {
+					"name": "emailAddress",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"professionalTaxReceiptNumber": {
+					"name": "professionalTaxReceiptNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"rollOfAttorneysNumber": {
+					"name": "rollOfAttorneysNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ibpMembershipNumber": {
+					"name": "ibpMembershipNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"mcleComplianceNumber": {
+					"name": "mcleComplianceNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ulasComplianceNumber": {
+					"name": "ulasComplianceNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"obcCertificationUrl": {
+					"name": "obcCertificationUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ibpCertificationUrl": {
+					"name": "ibpCertificationUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"passportPhotoUrl": {
+					"name": "passportPhotoUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"paymentProofUrl": {
+					"name": "paymentProofUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"enfProviderCertificationUrl": {
+					"name": "enfProviderCertificationUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"undertakingElectronicNotarialActs": {
+					"name": "undertakingElectronicNotarialActs",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"undertakingDataSharingGuidelines": {
+					"name": "undertakingDataSharingGuidelines",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"electronicSignatureApplied": {
+					"name": "electronicSignatureApplied",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"electronicSignatureUrl": {
+					"name": "electronicSignatureUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"submittedAt": {
+					"name": "submittedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"reviewedAt": {
+					"name": "reviewedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"approvedAt": {
+					"name": "approvedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rejectedAt": {
+					"name": "rejectedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"reviewedBy": {
+					"name": "reviewedBy",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"remarks": {
+					"name": "remarks",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"legal_registration_status_idx": {
+					"name": "legal_registration_status_idx",
+					"columns": [
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"legal_registration_applicant_id_idx": {
+					"name": "legal_registration_applicant_id_idx",
+					"columns": [
+						{
+							"expression": "applicantId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"legal_registration_applicantId_user_id_fk": {
+					"name": "legal_registration_applicantId_user_id_fk",
+					"tableFrom": "legal_registration",
+					"tableTo": "user",
+					"columnsFrom": ["applicantId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"legal_registration_applicantId_unique": {
+					"name": "legal_registration_applicantId_unique",
+					"nullsNotDistinct": false,
+					"columns": ["applicantId"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.liveness_validation": {
+			"name": "liveness_validation",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"meetingId": {
+					"name": "meetingId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"transactionId": {
+					"name": "transactionId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"attemptNumber": {
+					"name": "attemptNumber",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 1
+				},
+				"status": {
+					"name": "status",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"errorMessage": {
+					"name": "errorMessage",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"decisionJson": {
+					"name": "decisionJson",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rawResultJson": {
+					"name": "rawResultJson",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"liveness_validation_user_id_idx": {
+					"name": "liveness_validation_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"liveness_validation_meeting_id_idx": {
+					"name": "liveness_validation_meeting_id_idx",
+					"columns": [
+						{
+							"expression": "meetingId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"liveness_validation_transaction_id_idx": {
+					"name": "liveness_validation_transaction_id_idx",
+					"columns": [
+						{
+							"expression": "transactionId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"liveness_validation_status_idx": {
+					"name": "liveness_validation_status_idx",
+					"columns": [
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"liveness_validation_created_at_idx": {
+					"name": "liveness_validation_created_at_idx",
+					"columns": [
+						{
+							"expression": "createdAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"liveness_validation_updated_at_idx": {
+					"name": "liveness_validation_updated_at_idx",
+					"columns": [
+						{
+							"expression": "updatedAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"liveness_validation_user_meeting_idx": {
+					"name": "liveness_validation_user_meeting_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "meetingId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"liveness_validation_userId_user_id_fk": {
+					"name": "liveness_validation_userId_user_id_fk",
+					"tableFrom": "liveness_validation",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"liveness_validation_meetingId_meeting_id_fk": {
+					"name": "liveness_validation_meetingId_meeting_id_fk",
+					"tableFrom": "liveness_validation",
+					"tableTo": "meeting",
+					"columnsFrom": ["meetingId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"liveness_validation_transactionId_unique": {
+					"name": "liveness_validation_transactionId_unique",
+					"nullsNotDistinct": false,
+					"columns": ["transactionId"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.meeting": {
+			"name": "meeting",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"roomId": {
+					"name": "roomId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"isDocumentOrderLocked": {
+					"name": "isDocumentOrderLocked",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"createdById": {
+					"name": "createdById",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"meetings_room_id_idx": {
+					"name": "meetings_room_id_idx",
+					"columns": [
+						{
+							"expression": "roomId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"meetings_created_by_idx": {
+					"name": "meetings_created_by_idx",
+					"columns": [
+						{
+							"expression": "createdById",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"meeting_createdById_user_id_fk": {
+					"name": "meeting_createdById_user_id_fk",
+					"tableFrom": "meeting",
+					"tableTo": "user",
+					"columnsFrom": ["createdById"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.message_attachment": {
+			"name": "message_attachment",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"conversationId": {
+					"name": "conversationId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"uploadedBy": {
+					"name": "uploadedBy",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"fileName": {
+					"name": "fileName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"fileSize": {
+					"name": "fileSize",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"fileType": {
+					"name": "fileType",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"filePath": {
+					"name": "filePath",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"fileUrl": {
+					"name": "fileUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"uploadType": {
+					"name": "uploadType",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'general'"
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"message_attachment_conversation_id_idx": {
+					"name": "message_attachment_conversation_id_idx",
+					"columns": [
+						{
+							"expression": "conversationId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"message_attachment_upload_type_idx": {
+					"name": "message_attachment_upload_type_idx",
+					"columns": [
+						{
+							"expression": "uploadType",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"message_attachment_created_at_idx": {
+					"name": "message_attachment_created_at_idx",
+					"columns": [
+						{
+							"expression": "createdAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"message_attachment_conversationId_conversation_id_fk": {
+					"name": "message_attachment_conversationId_conversation_id_fk",
+					"tableFrom": "message_attachment",
+					"tableTo": "conversation",
+					"columnsFrom": ["conversationId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"message_attachment_uploadedBy_user_id_fk": {
+					"name": "message_attachment_uploadedBy_user_id_fk",
+					"tableFrom": "message_attachment",
+					"tableTo": "user",
+					"columnsFrom": ["uploadedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.conversation_participant": {
+			"name": "conversation_participant",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"conversationId": {
+					"name": "conversationId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"joinedAt": {
+					"name": "joinedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"lastReadAt": {
+					"name": "lastReadAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"conversation_participant_conversation_id_idx": {
+					"name": "conversation_participant_conversation_id_idx",
+					"columns": [
+						{
+							"expression": "conversationId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"conversation_participant_user_id_idx": {
+					"name": "conversation_participant_user_id_idx",
+					"columns": [
+						{
+							"expression": "userId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"conversation_participant_conversationId_conversation_id_fk": {
+					"name": "conversation_participant_conversationId_conversation_id_fk",
+					"tableFrom": "conversation_participant",
+					"tableTo": "conversation",
+					"columnsFrom": ["conversationId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"conversation_participant_userId_user_id_fk": {
+					"name": "conversation_participant_userId_user_id_fk",
+					"tableFrom": "conversation_participant",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.conversation": {
+			"name": "conversation",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"conversation_updated_at_idx": {
+					"name": "conversation_updated_at_idx",
+					"columns": [
+						{
+							"expression": "updatedAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.message": {
+			"name": "message",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"conversationId": {
+					"name": "conversationId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"senderId": {
+					"name": "senderId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"content": {
+					"name": "content",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"messageType": {
+					"name": "messageType",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'text'"
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"message_conversation_id_idx": {
+					"name": "message_conversation_id_idx",
+					"columns": [
+						{
+							"expression": "conversationId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"message_created_at_idx": {
+					"name": "message_created_at_idx",
+					"columns": [
+						{
+							"expression": "createdAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"message_conversationId_conversation_id_fk": {
+					"name": "message_conversationId_conversation_id_fk",
+					"tableFrom": "message",
+					"tableTo": "conversation",
+					"columnsFrom": ["conversationId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"message_senderId_user_id_fk": {
+					"name": "message_senderId_user_id_fk",
+					"tableFrom": "message",
+					"tableTo": "user",
+					"columnsFrom": ["senderId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.notarial_act": {
+			"name": "notarial_act",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"notarialBookId": {
+					"name": "notarialBookId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"actType": {
+					"name": "actType",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"documentId": {
+					"name": "documentId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"docoChainProjectUuid": {
+					"name": "docoChainProjectUuid",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"principalName": {
+					"name": "principalName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"principalIdNumber": {
+					"name": "principalIdNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"principalAddress": {
+					"name": "principalAddress",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"principalIdImageBase64": {
+					"name": "principalIdImageBase64",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"principalIdType": {
+					"name": "principalIdType",
+					"type": "varchar(100)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"witnessName": {
+					"name": "witnessName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"witnessIdNumber": {
+					"name": "witnessIdNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"enpName": {
+					"name": "enpName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"enpRollNumber": {
+					"name": "enpRollNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"executedAt": {
+					"name": "executedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"meetingEndedAt": {
+					"name": "meetingEndedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"location": {
+					"name": "location",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ipAddress": {
+					"name": "ipAddress",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"workflow": {
+					"name": "workflow",
+					"type": "varchar(10)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"locationStatement": {
+					"name": "locationStatement",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"documentName": {
+					"name": "documentName",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"documentDescription": {
+					"name": "documentDescription",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"passportData": {
+					"name": "passportData",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"signersData": {
+					"name": "signersData",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"certificateNumber": {
+					"name": "certificateNumber",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"certificateUrl": {
+					"name": "certificateUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"syncedToSupremeCourt": {
+					"name": "syncedToSupremeCourt",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"syncedAt": {
+					"name": "syncedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"supremeCourtRegistryId": {
+					"name": "supremeCourtRegistryId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"notarial_act_notarial_book_id_idx": {
+					"name": "notarial_act_notarial_book_id_idx",
+					"columns": [
+						{
+							"expression": "notarialBookId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_executed_at_idx": {
+					"name": "notarial_act_executed_at_idx",
+					"columns": [
+						{
+							"expression": "executedAt",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_document_id_idx": {
+					"name": "notarial_act_document_id_idx",
+					"columns": [
+						{
+							"expression": "documentId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_doco_chain_uuid_idx": {
+					"name": "notarial_act_doco_chain_uuid_idx",
+					"columns": [
+						{
+							"expression": "docoChainProjectUuid",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_principal_name_idx": {
+					"name": "notarial_act_principal_name_idx",
+					"columns": [
+						{
+							"expression": "principalName",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_certificate_number_idx": {
+					"name": "notarial_act_certificate_number_idx",
+					"columns": [
+						{
+							"expression": "certificateNumber",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_enp_name_idx": {
+					"name": "notarial_act_enp_name_idx",
+					"columns": [
+						{
+							"expression": "enpName",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_act_type_idx": {
+					"name": "notarial_act_act_type_idx",
+					"columns": [
+						{
+							"expression": "actType",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarial_act_workflow_idx": {
+					"name": "notarial_act_workflow_idx",
+					"columns": [
+						{
+							"expression": "workflow",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"notarial_act_notarialBookId_notarial_book_id_fk": {
+					"name": "notarial_act_notarialBookId_notarial_book_id_fk",
+					"tableFrom": "notarial_act",
+					"tableTo": "notarial_book",
+					"columnsFrom": ["notarialBookId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"notarial_act_documentId_document_id_fk": {
+					"name": "notarial_act_documentId_document_id_fk",
+					"tableFrom": "notarial_act",
+					"tableTo": "document",
+					"columnsFrom": ["documentId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.notarial_book": {
+			"name": "notarial_book",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"enpId": {
+					"name": "enpId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"enfId": {
+					"name": "enfId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"syncedToSupremeCourt": {
+					"name": "syncedToSupremeCourt",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false,
+					"default": false
+				},
+				"syncedAt": {
+					"name": "syncedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"notarial_book_enp_id_idx": {
+					"name": "notarial_book_enp_id_idx",
+					"columns": [
+						{
+							"expression": "enpId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"notarial_book_enpId_user_id_fk": {
+					"name": "notarial_book_enpId_user_id_fk",
+					"tableFrom": "notarial_book",
+					"tableTo": "user",
+					"columnsFrom": ["enpId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.notarization_request": {
+			"name": "notarization_request",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"principalId": {
+					"name": "principalId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"enpId": {
+					"name": "enpId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"title": {
+					"name": "title",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"workflow": {
+					"name": "workflow",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"priority": {
+					"name": "priority",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'NORMAL'"
+				},
+				"status": {
+					"name": "status",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'PENDING'"
+				},
+				"appointmentId": {
+					"name": "appointmentId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"rejectReason": {
+					"name": "rejectReason",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"notarization_requests_principal_id_idx": {
+					"name": "notarization_requests_principal_id_idx",
+					"columns": [
+						{
+							"expression": "principalId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarization_requests_enp_id_idx": {
+					"name": "notarization_requests_enp_id_idx",
+					"columns": [
+						{
+							"expression": "enpId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarization_requests_status_idx": {
+					"name": "notarization_requests_status_idx",
+					"columns": [
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"notarization_requests_workflow_idx": {
+					"name": "notarization_requests_workflow_idx",
+					"columns": [
+						{
+							"expression": "workflow",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"notarization_request_principalId_user_id_fk": {
+					"name": "notarization_request_principalId_user_id_fk",
+					"tableFrom": "notarization_request",
+					"tableTo": "user",
+					"columnsFrom": ["principalId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"notarization_request_enpId_user_id_fk": {
+					"name": "notarization_request_enpId_user_id_fk",
+					"tableFrom": "notarization_request",
+					"tableTo": "user",
+					"columnsFrom": ["enpId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		},
+		"public.signature_request": {
+			"name": "signature_request",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "varchar(255)",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"meetingId": {
+					"name": "meetingId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"documentId": {
+					"name": "documentId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"requesterId": {
+					"name": "requesterId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"signerId": {
+					"name": "signerId",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "varchar(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'PENDING'"
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"signedAt": {
+					"name": "signedAt",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"signature_requests_meeting_id_idx": {
+					"name": "signature_requests_meeting_id_idx",
+					"columns": [
+						{
+							"expression": "meetingId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"signature_requests_signer_id_idx": {
+					"name": "signature_requests_signer_id_idx",
+					"columns": [
+						{
+							"expression": "signerId",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"signature_requests_status_idx": {
+					"name": "signature_requests_status_idx",
+					"columns": [
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"signature_request_meetingId_meeting_id_fk": {
+					"name": "signature_request_meetingId_meeting_id_fk",
+					"tableFrom": "signature_request",
+					"tableTo": "meeting",
+					"columnsFrom": ["meetingId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"signature_request_documentId_document_id_fk": {
+					"name": "signature_request_documentId_document_id_fk",
+					"tableFrom": "signature_request",
+					"tableTo": "document",
+					"columnsFrom": ["documentId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"signature_request_requesterId_user_id_fk": {
+					"name": "signature_request_requesterId_user_id_fk",
+					"tableFrom": "signature_request",
+					"tableTo": "user",
+					"columnsFrom": ["requesterId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"signature_request_signerId_user_id_fk": {
+					"name": "signature_request_signerId_user_id_fk",
+					"tableFrom": "signature_request",
+					"tableTo": "user",
+					"columnsFrom": ["signerId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": true
+		}
+	},
+	"enums": {
+		"public.appointment_participant_role": {
+			"name": "appointment_participant_role",
+			"schema": "public",
+			"values": ["HOST", "PARTICIPANT"]
+		},
+		"public.appointment_participant_status": {
+			"name": "appointment_participant_status",
+			"schema": "public",
+			"values": ["PENDING", "ACCEPTED", "DECLINED"]
+		},
+		"public.appointment_status": {
+			"name": "appointment_status",
+			"schema": "public",
+			"values": ["PENDING", "CONFIRMED", "ONGOING", "CANCELLED", "COMPLETED"]
+		},
+		"public.appointment_type": {
+			"name": "appointment_type",
+			"schema": "public",
+			"values": ["NOTARIZATION", "CONSULTATION"]
+		},
+		"public.document_status": {
+			"name": "document_status",
+			"schema": "public",
+			"values": ["UPLOADED", "PROCESSING", "READY", "ERROR"]
+		},
+		"public.enp_availability_type": {
+			"name": "enp_availability_type",
+			"schema": "public",
+			"values": ["REGULAR", "BLOCKED", "CUSTOM", "RECURRING_BLOCKED"]
+		},
+		"public.kyc_status": {
+			"name": "kyc_status",
+			"schema": "public",
+			"values": ["NOT_STARTED", "PENDING", "VERIFIED", "REJECTED"]
+		},
+		"public.legal_application_status": {
+			"name": "legal_application_status",
+			"schema": "public",
+			"values": ["DRAFT", "PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"]
+		},
+		"public.notarization_type": {
+			"name": "notarization_type",
+			"schema": "public",
+			"values": ["ACKNOWLEDGMENT", "AFFIRMATION", "JURAT", "SIGNATURE_WITNESSING"]
+		},
+		"public.user_role": {
+			"name": "user_role",
+			"schema": "public",
+			"values": ["ENP", "PRINCIPAL", "ENA", "ADMIN"]
+		},
+		"public.user_status": {
+			"name": "user_status",
+			"schema": "public",
+			"values": ["ACTIVE", "PENDING", "SUSPENDED"]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
 }

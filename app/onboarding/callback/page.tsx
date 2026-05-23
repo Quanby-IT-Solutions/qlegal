@@ -4,9 +4,15 @@ import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { CheckCircle2, Info, Loader2, XCircle } from "lucide-react"
 
-import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/reui/alert"
+import { Button } from "@/core/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Spotlight } from "@/core/components/ui/spotlight-new"
 import { useKycBroadcast, type KycBroadcastMessage } from "@/core/hooks/use-kyc-broadcast"
 
@@ -30,19 +36,12 @@ export default function KycCallbackPage() {
 			return "KYC_CANCELLED"
 		}
 		if (
-			[
-				"auto_approved",
-				"approved",
-				"success",
-				"succeeded",
-				"verified",
-				"completed",
-			].includes(normalized)
+			["auto_approved", "approved", "success", "succeeded", "verified", "completed"].includes(
+				normalized
+			)
 		)
 			return "KYC_VERIFIED"
-		if (
-			["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)
-		) {
+		if (["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)) {
 			return "KYC_REJECTED"
 		}
 
@@ -60,19 +59,12 @@ export default function KycCallbackPage() {
 		}
 
 		if (
-			[
-				"auto_approved",
-				"approved",
-				"success",
-				"succeeded",
-				"verified",
-				"completed",
-			].includes(normalized)
+			["auto_approved", "approved", "success", "succeeded", "verified", "completed"].includes(
+				normalized
+			)
 		)
 			return "Your verification was completed successfully."
-		if (
-			["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)
-		) {
+		if (["auto_declined", "rejected", "declined", "failed", "error"].includes(normalized)) {
 			return "Your verification could not be completed."
 		}
 
@@ -153,9 +145,9 @@ export default function KycCallbackPage() {
 					<CardHeader className="text-center">
 						<div className="mb-3 flex justify-center">
 							{showFallback ? (
-								<CheckCircle2 className="size-9 text-foreground/80" />
+								<CheckCircle2 className="text-foreground/80 size-9" />
 							) : (
-								<Loader2 className="size-9 animate-spin text-foreground/80" />
+								<Loader2 className="text-foreground/80 size-9 animate-spin" />
 							)}
 						</div>
 						<CardTitle className="text-xl">

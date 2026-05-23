@@ -1,6 +1,10 @@
-import { env } from "@/env"
-import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
+import {
+	getDoconchainApiToken,
+	invalidateDoconchainToken,
+} from "@/services/doconchain/auth/generate-token"
 import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type DoconchainVaultProject = {
 	uuid?: string
@@ -21,7 +25,10 @@ type DoconchainVaultItemResponse = {
 	meta?: Record<string, unknown>
 }
 
-async function fetchVaultItem(params: { token: string; uuid: string }): Promise<DoconchainVaultItemResponse> {
+async function fetchVaultItem(params: {
+	token: string
+	uuid: string
+}): Promise<DoconchainVaultItemResponse> {
 	const url = new URL(`/vault/items/${params.uuid}`, env.DOCONCHAIN_API_URL)
 	url.searchParams.set("user_type", "ENTERPRISE_API")
 
@@ -42,7 +49,9 @@ async function fetchVaultItem(params: { token: string; uuid: string }): Promise<
 		throw err
 	}
 
-	return (text ? (JSON.parse(text) as DoconchainVaultItemResponse) : {}) as DoconchainVaultItemResponse
+	return (
+		text ? (JSON.parse(text) as DoconchainVaultItemResponse) : {}
+	) as DoconchainVaultItemResponse
 }
 
 export async function getDoconchainVaultItem(input: {
@@ -58,7 +67,10 @@ export async function getDoconchainVaultItem(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
+		const token = await getDoconchainApiToken({
+			email,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		return await fetchVaultItem({ token, uuid })
 	}
 
@@ -68,7 +80,8 @@ export async function getDoconchainVaultItem(input: {
 		const status = typeof item?.status === "string" ? item.status.toLowerCase() : ""
 		return { item, isCompleted: status === "completed" }
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			invalidateDoconchainToken(email)
 			const res = await doRequest()
@@ -79,4 +92,3 @@ export async function getDoconchainVaultItem(input: {
 		throw error
 	}
 }
-

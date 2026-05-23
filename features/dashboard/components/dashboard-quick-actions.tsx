@@ -97,7 +97,7 @@ export function DashboardQuickActions({
 						className={buttonVariants({
 							variant: "outline",
 							className:
-								"hover:bg-background h-auto cursor-default flex-col items-start gap-2 p-4 hover:text-foreground",
+								"hover:bg-background hover:text-foreground h-auto cursor-default flex-col items-start gap-2 p-4",
 						})}
 						aria-disabled="true"
 					>

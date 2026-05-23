@@ -113,9 +113,7 @@ export function DashboardSigningSessions({
 									<Button
 										size="sm"
 										className="bg-green-600 hover:bg-green-700"
-										onClick={() =>
-											router.push(`/sessions/${session.activeMeetingId}` as Route)
-										}
+										onClick={() => router.push(`/sessions/${session.activeMeetingId}` as Route)}
 									>
 										<HugeiconsIcon icon={Video01Icon} size={16} className="mr-1.5" />
 										Join Meeting

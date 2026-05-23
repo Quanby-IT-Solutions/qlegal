@@ -3,10 +3,10 @@
 import type { Route } from "next"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
 import { BookOpen01Icon, Diamond01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight, X } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import {
 	Tooltip,

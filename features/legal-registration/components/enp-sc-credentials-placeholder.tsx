@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
 import { CheckCircle2, Landmark } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
@@ -26,14 +26,14 @@ type EnpScCredentialsPlaceholderProps = {
 	applicationStatus: string | null | undefined
 }
 
-export function EnpScCredentialsPlaceholder({ applicationStatus }: EnpScCredentialsPlaceholderProps) {
+export function EnpScCredentialsPlaceholder({
+	applicationStatus,
+}: EnpScCredentialsPlaceholderProps) {
 	const { data: session } = useSession()
 	const userId = session?.user?.id
 
 	const submittedToQlegal =
-		applicationStatus != null &&
-		applicationStatus !== "DRAFT" &&
-		applicationStatus !== "REJECTED"
+		applicationStatus != null && applicationStatus !== "DRAFT" && applicationStatus !== "REJECTED"
 
 	const [recordedAtIso, setRecordedAtIso] = useState<string | null>(null)
 
@@ -70,23 +70,24 @@ export function EnpScCredentialsPlaceholder({ applicationStatus }: EnpScCredenti
 					<CardTitle className="text-lg">Supreme Court credentials (placeholder)</CardTitle>
 				</div>
 				<CardDescription>
-					Your ENP checklist already treats a submitted application (PENDING or later) as having cleared
-					the Supreme Court credentials step for now. Use this only if you want to log when you sent
-					documents outside QLegal — optional until a real Supreme Court integration exists.
+					Your ENP checklist already treats a submitted application (PENDING or later) as having
+					cleared the Supreme Court credentials step for now. Use this only if you want to log when
+					you sent documents outside QLegal — optional until a real Supreme Court integration
+					exists.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{isRecorded ? (
 					<Alert
-						className="border-emerald-500/35 bg-emerald-500/10 text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10"
+						className="text-foreground border-emerald-500/35 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-400/10"
 						role="status"
 					>
 						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
 						<AlertTitle>Recorded</AlertTitle>
 						<AlertDescription className="text-muted-foreground mt-1">
 							You marked Supreme Court submission on {recordedLabel ?? "a previous visit"}. The
-							&quot;Submit your certificate/credentials to the Supreme Court&quot; step stays completed.
-							You can update the timestamp below if you need to confirm again.
+							&quot;Submit your certificate/credentials to the Supreme Court&quot; step stays
+							completed. You can update the timestamp below if you need to confirm again.
 						</AlertDescription>
 					</Alert>
 				) : null}
@@ -102,7 +103,9 @@ export function EnpScCredentialsPlaceholder({ applicationStatus }: EnpScCredenti
 							setRecordedAtIso(iso)
 						}}
 					>
-						{isRecorded ? "Confirm again (updates timestamp)" : "I've submitted to the Supreme Court"}
+						{isRecorded
+							? "Confirm again (updates timestamp)"
+							: "I've submitted to the Supreme Court"}
 					</Button>
 					{!userId ? (
 						<p className="text-muted-foreground text-xs">Sign in to record this step.</p>

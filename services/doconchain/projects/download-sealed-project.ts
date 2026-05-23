@@ -1,9 +1,13 @@
-import { env } from "@/env"
-import { getDoconchainApiToken, invalidateDoconchainToken } from "@/services/doconchain/auth/generate-token"
+import {
+	getDoconchainApiToken,
+	invalidateDoconchainToken,
+} from "@/services/doconchain/auth/generate-token"
+import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
+import { getDoconchainMyProjectDetails } from "@/services/doconchain/projects/get-my-project-details"
 import { getDoconchainVaultItem } from "@/services/doconchain/vault/get-vault-item"
 import { getDoconchainVaultItems } from "@/services/doconchain/vault/get-vault-items"
-import { getDoconchainMyProjectDetails } from "@/services/doconchain/projects/get-my-project-details"
-import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 async function fetchProjectDownload(params: { projectUuid: string; token: string }): Promise<{
 	contentType: string | null
@@ -200,11 +204,15 @@ export async function downloadDoconchainSealedProject(input: {
 
 	const doRequest = async () => {
 		// Prefer explicit user-token (DOCONCHAIN_API_TOKEN) if configured; otherwise generate.
-		const token = await getDoconchainApiToken({ email, getSubOrgCredsForEmail: input.getSubOrgCredsForEmail })
+		const token = await getDoconchainApiToken({
+			email,
+			getSubOrgCredsForEmail: input.getSubOrgCredsForEmail,
+		})
 		try {
 			return await fetchProjectDownload({ projectUuid, token })
 		} catch (error) {
-			const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+			const status =
+				error instanceof Error ? (error as Error & { status?: number }).status : undefined
 			// If download route doesn't exist (E_ROUTE_NOT_FOUND), fall back to Vault file_url.
 			if (status === 404) {
 				// Fallback 1: try /my/projects/:uuid to find completed/sealed file URLs
@@ -228,7 +236,9 @@ export async function downloadDoconchainSealedProject(input: {
 					if (isCompleted && files.length > 0) {
 						// Prefer “completed” files (these typically include the seal)
 						const completedFile = files.find(f => {
-							const type = String(f.type ?? "").toLowerCase().trim()
+							const type = String(f.type ?? "")
+								.toLowerCase()
+								.trim()
 							const fileName = String(f.file_name ?? "").toLowerCase()
 							return (
 								type.includes("completed") ||
@@ -300,7 +310,8 @@ export async function downloadDoconchainSealedProject(input: {
 			filename: res.filename,
 		}
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 401) {
 			const invalidate = invalidateDoconchainToken as (email: string) => void
 			invalidate(email)
@@ -314,4 +325,3 @@ export async function downloadDoconchainSealedProject(input: {
 		throw error
 	}
 }
-

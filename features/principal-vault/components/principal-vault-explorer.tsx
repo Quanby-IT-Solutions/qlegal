@@ -1,10 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Route } from "next"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
-import { useDropzone } from "react-dropzone"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	ExternalLink,
 	FileText,
@@ -20,6 +18,8 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
 
 import { PageHeader, type PageHeaderItem } from "@/core/components/navbar/page-header"
@@ -27,25 +27,25 @@ import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu"
-import {
 	Dialog,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/core/components/ui/dialog"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu"
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import { Skeleton } from "@/core/components/ui/skeleton"
 import { cn } from "@/core/lib/utils"
 
-import { trpc } from "@/services/trpc/client"
 import { useUploadFile } from "@/services/supabase/upload"
+import { trpc } from "@/services/trpc/client"
 
 import { PrincipalVaultFileFeedbackSheet } from "@/features/principal-vault/components/principal-vault-file-feedback-sheet"
 import { ShareVaultFolderDialog } from "@/features/principal-vault/components/share-vault-folder-dialog"
@@ -60,8 +60,7 @@ export function PrincipalVaultExplorer() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
 	const { data: session } = useSession()
-	const canShareWithNotary =
-		session?.user?.role === "PRINCIPAL" || session?.user?.role === "ENP"
+	const canShareWithNotary = session?.user?.role === "PRINCIPAL" || session?.user?.role === "ENP"
 	const folderParam = searchParams.get("folder")
 	const parentId = folderParam && folderParam.length > 0 ? folderParam : null
 
@@ -70,9 +69,7 @@ export function PrincipalVaultExplorer() {
 	const [newFolderOpen, setNewFolderOpen] = useState(false)
 	const [newFolderName, setNewFolderName] = useState("")
 	const [renameTarget, setRenameTarget] = useState<
-		| { kind: "folder"; id: string; name: string }
-		| { kind: "file"; id: string; name: string }
-		| null
+		{ kind: "folder"; id: string; name: string } | { kind: "file"; id: string; name: string } | null
 	>(null)
 	const [renameValue, setRenameValue] = useState("")
 	const [uploading, setUploading] = useState(false)
@@ -80,10 +77,7 @@ export function PrincipalVaultExplorer() {
 	const [feedbackFile, setFeedbackFile] = useState<{ id: string; name: string } | null>(null)
 	const [vaultSearch, setVaultSearch] = useState("")
 
-	const listQuery = trpc.principalVault.list.useQuery(
-		{ parentId },
-		{ retry: false }
-	)
+	const listQuery = trpc.principalVault.list.useQuery({ parentId }, { retry: false })
 
 	const createFolder = trpc.principalVault.createFolder.useMutation({
 		onSuccess: async () => {
@@ -208,13 +202,7 @@ export function PrincipalVaultExplorer() {
 				setUploading(false)
 			}
 		},
-		[
-			parentId,
-			prepareUpload,
-			completeUpload,
-			uploadToSignedUrl,
-			utils.principalVault.list,
-		]
+		[parentId, prepareUpload, completeUpload, uploadToSignedUrl, utils.principalVault.list]
 	)
 
 	const onDrop = useCallback(
@@ -311,9 +299,7 @@ export function PrincipalVaultExplorer() {
 								<Button
 									variant="outline"
 									type="button"
-									onClick={() =>
-										setShareFolder({ id: parentId, name: currentFolderLabel })
-									}
+									onClick={() => setShareFolder({ id: parentId, name: currentFolderLabel })}
 								>
 									<Share2 className="mr-2 size-4" />
 									Share this folder
@@ -360,7 +346,7 @@ export function PrincipalVaultExplorer() {
 						<AlertTitle>Not reviewed for notarization</AlertTitle>
 						<AlertDescription>
 							Files you store here have not been checked by an Electronic Notary Public (ENP) for
-							readiness to notarize. 							You can share an entire folder (including subfolders) with an
+							readiness to notarize. You can share an entire folder (including subfolders) with an
 							ENP by email or a copy-paste link so they can review contents before a session.
 						</AlertDescription>
 					</Alert>
@@ -415,14 +401,14 @@ export function PrincipalVaultExplorer() {
 										{filteredFolders.map(f => (
 											<div
 												key={f.id}
-												className="group bg-card border-border/80 hover:border-border relative flex items-stretch overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md dark:border-white/10 dark:bg-card/90 dark:shadow-black/25 dark:hover:border-white/[0.14] dark:hover:shadow-lg"
+												className="group bg-card border-border/80 hover:border-border dark:bg-card/90 relative flex items-stretch overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md dark:border-white/10 dark:shadow-black/25 dark:hover:border-white/[0.14] dark:hover:shadow-lg"
 											>
 												<button
 													type="button"
 													onClick={() => goToFolder(f.id)}
-													className="hover:bg-muted/50 dark:hover:bg-muted/20 focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-4 rounded-l-xl p-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+													className="hover:bg-muted/50 dark:hover:bg-muted/20 focus-visible:ring-ring focus-visible:ring-offset-background flex min-w-0 flex-1 items-center gap-4 rounded-l-xl p-4 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
 												>
-													<div className="bg-amber-500/10 ring-amber-500/15 flex size-11 shrink-0 items-center justify-center rounded-lg ring-1 dark:bg-amber-500/[0.14] dark:ring-amber-400/20">
+													<div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 ring-1 ring-amber-500/15 dark:bg-amber-500/[0.14] dark:ring-amber-400/20">
 														<Folder
 															className="size-5 text-amber-600 dark:text-amber-400"
 															strokeWidth={2}
@@ -444,7 +430,7 @@ export function PrincipalVaultExplorer() {
 															<Button
 																variant="ghost"
 																size="icon"
-																className="text-muted-foreground size-9 shrink-0 opacity-70 transition-opacity hover:bg-muted/80 hover:opacity-100 group-hover:opacity-90 dark:hover:bg-muted/40"
+																className="text-muted-foreground hover:bg-muted/80 dark:hover:bg-muted/40 size-9 shrink-0 opacity-70 transition-opacity group-hover:opacity-90 hover:opacity-100"
 															>
 																<MoreVertical className="size-4" />
 																<span className="sr-only">Folder actions</span>
@@ -460,7 +446,9 @@ export function PrincipalVaultExplorer() {
 																</DropdownMenuItem>
 															) : null}
 															<DropdownMenuItem
-																onClick={() => openRename({ kind: "folder", id: f.id, name: f.name })}
+																onClick={() =>
+																	openRename({ kind: "folder", id: f.id, name: f.name })
+																}
 															>
 																<Pencil className="size-4 shrink-0" aria-hidden />
 																Rename
@@ -529,7 +517,9 @@ export function PrincipalVaultExplorer() {
 																Open
 															</DropdownMenuItem>
 															<DropdownMenuItem
-																onClick={() => openRename({ kind: "file", id: file.id, name: file.name })}
+																onClick={() =>
+																	openRename({ kind: "file", id: file.id, name: file.name })
+																}
 															>
 																<Pencil className="size-4 shrink-0" aria-hidden />
 																Rename
@@ -601,9 +591,7 @@ export function PrincipalVaultExplorer() {
 						<Button
 							type="button"
 							disabled={!newFolderName.trim() || createFolder.isPending}
-							onClick={() =>
-								createFolder.mutate({ parentId, name: newFolderName.trim() })
-							}
+							onClick={() => createFolder.mutate({ parentId, name: newFolderName.trim() })}
 						>
 							{createFolder.isPending ? <Loader2 className="size-4 animate-spin" /> : "Create"}
 						</Button>
@@ -641,11 +629,7 @@ export function PrincipalVaultExplorer() {
 						</Button>
 						<Button
 							type="button"
-							disabled={
-								!renameValue.trim() ||
-								renameFolder.isPending ||
-								renameFile.isPending
-							}
+							disabled={!renameValue.trim() || renameFolder.isPending || renameFile.isPending}
 							onClick={() => submitRename()}
 						>
 							{renameFolder.isPending || renameFile.isPending ? (

@@ -93,7 +93,7 @@ export function VaultShareFileCommentsSheet({
 								{listQuery.data?.map(c => (
 									<li key={c.id} className="border-b pb-3 last:border-0">
 										<div className="text-muted-foreground mb-1 flex flex-wrap items-baseline justify-between gap-2 text-xs">
-											<span className="font-medium text-foreground">{c.authorName}</span>
+											<span className="text-foreground font-medium">{c.authorName}</span>
 											<span>{format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}</span>
 										</div>
 										<p className="text-sm whitespace-pre-wrap">{c.body}</p>

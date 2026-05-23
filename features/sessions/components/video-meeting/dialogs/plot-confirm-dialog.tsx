@@ -33,7 +33,8 @@ export function PlotConfirmDialog({
 				<DialogHeader>
 					<DialogTitle>Confirm signature plotting</DialogTitle>
 					<DialogDescription>
-						Did you finish plotting signatures for <strong>{documentName ?? "this document"}</strong>?
+						Did you finish plotting signatures for{" "}
+						<strong>{documentName ?? "this document"}</strong>?
 						<br />
 						Only confirm if you actually placed the required signature fields in DocOnChain.
 					</DialogDescription>

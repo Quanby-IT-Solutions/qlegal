@@ -2,15 +2,22 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useSession } from "next-auth/react"
 import { CheckCircle2, Download, ExternalLink } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/core/components/ui/alert"
 import { Button } from "@/core/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/components/ui/card"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/core/components/ui/card"
 import { Checkbox } from "@/core/components/ui/checkbox"
 import { Label } from "@/core/components/ui/label"
 import { cn } from "@/core/lib/utils"
+
 import { trpc } from "@/services/trpc/client"
 
 import {
@@ -130,7 +137,10 @@ function escapeHtml(input: string) {
 }
 
 function makeCertificateId(date: Date) {
-	const ts = date.toISOString().replaceAll(/[-:TZ.]/g, "").slice(0, 14)
+	const ts = date
+		.toISOString()
+		.replaceAll(/[-:TZ.]/g, "")
+		.slice(0, 14)
 	const rand = Math.random().toString(16).slice(2, 10).toUpperCase()
 	return `ENP-${ts}-${rand}`
 }
@@ -169,7 +179,9 @@ export function EnpCoursePlaceholder() {
 	})
 	const lmsBackfillDoneRef = useRef(false)
 
-	const [modulesAck, setModulesAck] = useState<boolean[]>(() => ENP_LMS_MODULE_LABELS.map(() => false))
+	const [modulesAck, setModulesAck] = useState<boolean[]>(() =>
+		ENP_LMS_MODULE_LABELS.map(() => false)
+	)
 
 	const fullName = useMemo(() => {
 		const name = session?.user?.name?.trim()
@@ -217,7 +229,8 @@ export function EnpCoursePlaceholder() {
 	}, [userId, userEmail])
 
 	useEffect(() => {
-		const sync = () => setLocalDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
+		const sync = () =>
+			setLocalDownloadedAtIso(readEnpCourseCertificateDownloadedAt(userId, userEmail))
 		window.addEventListener("focus", sync)
 		window.addEventListener("pageshow", sync)
 		window.addEventListener(ENP_COURSE_CERT_CHANGED_EVENT, sync)
@@ -253,24 +266,26 @@ export function EnpCoursePlaceholder() {
 			<CardHeader>
 				<CardTitle>ENP Course (Placeholder)</CardTitle>
 				<CardDescription>
-					Step 2 (certificate) upgrades your account to ENP when you started as a principal. The five-module
-					checklist below is optional progress only. Sessions, browse, and booking unlock when an administrator
-					sets your commission to Active (accreditation step 5)—not when you tick all five boxes here.
+					Step 2 (certificate) upgrades your account to ENP when you started as a principal. The
+					five-module checklist below is optional progress only. Sessions, browse, and booking
+					unlock when an administrator sets your commission to Active (accreditation step 5)—not
+					when you tick all five boxes here.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{isCertificateDownloaded ? (
 					<Alert
-						className="border-emerald-500/35 bg-emerald-500/10 text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10"
+						className="text-foreground border-emerald-500/35 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-400/10"
 						role="status"
 					>
 						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
 						<AlertTitle>Course completed</AlertTitle>
 						<AlertDescription className="text-muted-foreground mt-1">
 							You&apos;ve finished step 2 and downloaded your certificate
-							{downloadedAtLabel ? ` on ${downloadedAtLabel}` : ""}. Your role is now ENP if you began as
-							a principal. You can use the module checklist below to track training; hosting sessions and
-							appearing in browse still require commission Active from an administrator.
+							{downloadedAtLabel ? ` on ${downloadedAtLabel}` : ""}. Your role is now ENP if you
+							began as a principal. You can use the module checklist below to track training;
+							hosting sessions and appearing in browse still require commission Active from an
+							administrator.
 						</AlertDescription>
 					</Alert>
 				) : null}
@@ -303,7 +318,7 @@ export function EnpCoursePlaceholder() {
 					</div>
 				</div>
 
-				<div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+				<div className="border-border/60 bg-muted/30 space-y-2 rounded-lg border p-3">
 					<div className="text-sm font-medium">
 						2) Download certificate
 						{isCertificateDownloaded ? (
@@ -341,7 +356,9 @@ export function EnpCoursePlaceholder() {
 								Certificate downloaded{downloadedAtLabel ? `: ${downloadedAtLabel}` : ""}.
 							</div>
 						) : !isAuthenticated ? (
-							<div className="text-muted-foreground text-xs">Please sign in to download your certificate.</div>
+							<div className="text-muted-foreground text-xs">
+								Please sign in to download your certificate.
+							</div>
 						) : (
 							<div className="text-muted-foreground text-xs">
 								Click “Complete course” first to enable download.
@@ -351,7 +368,7 @@ export function EnpCoursePlaceholder() {
 				</div>
 
 				{showFullProgram ? (
-					<div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+					<div className="border-border/60 bg-muted/20 space-y-3 rounded-lg border p-4">
 						<div className="text-sm font-medium">
 							3) Full ENP program (5 of 5 modules — optional record)
 						</div>
@@ -367,8 +384,9 @@ export function EnpCoursePlaceholder() {
 						) : (
 							<>
 								<p className="text-muted-foreground text-sm">
-									Confirm each module when finished (placeholder until the LMS tracks progress). This
-									does not replace admin commission activation for live sessions or public booking.
+									Confirm each module when finished (placeholder until the LMS tracks progress).
+									This does not replace admin commission activation for live sessions or public
+									booking.
 								</p>
 								<ul className="space-y-3">
 									{ENP_LMS_MODULE_LABELS.map((label, idx) => (
@@ -412,4 +430,3 @@ export function EnpCoursePlaceholder() {
 		</Card>
 	)
 }
-

@@ -1,8 +1,9 @@
-import { env } from "@/env"
 import {
 	getDoconchainApiToken,
 	getDoconchainApiTokenWithEnterpriseCreds,
 } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type SubOrgMemberItem = {
 	email?: string
@@ -51,8 +52,8 @@ export async function getDoconchainSubOrgMembers(input: {
 		fetch(url.toString(), {
 			method: "GET",
 			headers: {
-				Authorization: `Bearer ${t}`,
-				accept: "application/json",
+				"Authorization": `Bearer ${t}`,
+				"accept": "application/json",
 				"content-type": "application/json",
 			},
 		})
@@ -71,7 +72,8 @@ export async function getDoconchainSubOrgMembers(input: {
 	}
 	if (input.clientKey && input.clientSecret) {
 		let token: string | null = null
-		const tokenEmail = (input.tokenEmail ?? "").trim().toLowerCase() || env.DOCONCHAIN_EMAIL.trim().toLowerCase()
+		const tokenEmail =
+			(input.tokenEmail ?? "").trim().toLowerCase() || env.DOCONCHAIN_EMAIL.trim().toLowerCase()
 		try {
 			token = await getDoconchainApiTokenWithEnterpriseCreds({
 				email: tokenEmail,
@@ -85,7 +87,10 @@ export async function getDoconchainSubOrgMembers(input: {
 		if (token) {
 			res = await doRequest(token)
 			if (res.status === 401) {
-				token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true }).catch(() => null)
+				token = await getDoconchainApiToken({
+					email: env.DOCONCHAIN_EMAIL,
+					forceGenerated: true,
+				}).catch(() => null)
 				if (token) res = await doRequest(token)
 			}
 		} else {
@@ -99,7 +104,10 @@ export async function getDoconchainSubOrgMembers(input: {
 		} else {
 			res = await doRequest(token)
 			if (res.status === 401) {
-				token = await getDoconchainApiToken({ email: env.DOCONCHAIN_EMAIL, forceGenerated: true }).catch(() => null)
+				token = await getDoconchainApiToken({
+					email: env.DOCONCHAIN_EMAIL,
+					forceGenerated: true,
+				}).catch(() => null)
 				if (token) res = await doRequest(token)
 			}
 		}
@@ -119,4 +127,3 @@ export async function getDoconchainSubOrgMembers(input: {
 	const parsed = (text ? (JSON.parse(text) as SubOrgMembersResponse) : []) as SubOrgMembersResponse
 	return asList(parsed)
 }
-

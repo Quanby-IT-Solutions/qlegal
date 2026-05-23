@@ -60,9 +60,7 @@ export const RecoveryEmailVerificationTemplate = ({
 							<Text className="m-0 mt-4 text-2xl font-bold tracking-tight text-white">
 								Recovery Email Verification
 							</Text>
-							<Text className="m-0 mt-1 text-sm text-pink-100">
-								Confirm your recovery email
-							</Text>
+							<Text className="m-0 mt-1 text-sm text-pink-100">Confirm your recovery email</Text>
 						</Section>
 
 						{/* Badge Section */}
@@ -98,8 +96,8 @@ export const RecoveryEmailVerificationTemplate = ({
 							</Text>
 
 							<Text className="mb-6 text-sm leading-relaxed text-gray-700">
-								You (or someone on your account) requested to set this email as a recovery
-								email address. Please verify it by clicking the button below:
+								You (or someone on your account) requested to set this email as a recovery email
+								address. Please verify it by clicking the button below:
 							</Text>
 
 							{/* Confirm Button */}
@@ -118,13 +116,11 @@ export const RecoveryEmailVerificationTemplate = ({
 							</Section>
 
 							<Text className="mb-6 text-sm leading-relaxed text-gray-700">
-								This verification link will expire in <strong>1 hour</strong> for security
-								reasons.
+								This verification link will expire in <strong>1 hour</strong> for security reasons.
 							</Text>
 
 							<Text className="text-sm leading-relaxed text-gray-700">
-								If you did not request this, please ignore this email or contact support
-								at{" "}
+								If you did not request this, please ignore this email or contact support at{" "}
 								<Link
 									href="mailto:software@quanbyit.com"
 									className="font-semibold text-pink-600 no-underline"

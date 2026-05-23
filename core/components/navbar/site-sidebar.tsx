@@ -19,10 +19,11 @@ import { SidebarNavSection } from "@/core/components/navbar/sidebar-nav-section"
 import { SidebarSecondaryNav } from "@/core/components/navbar/sidebar-secondary-nav"
 import { UserDropdown } from "@/core/components/navbar/user-dropdown"
 import { QuanbyLogo } from "@/core/components/quanby-logo"
-import { EnpAccreditationProgressSidebarBanner } from "@/features/legal-registration/components/enp-accreditation-progress-banner"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { navSecondary } from "@/core/lib/nav/site.config"
 import { getAppSidebarSections } from "@/core/lib/nav/utils"
+
+import { EnpAccreditationProgressSidebarBanner } from "@/features/legal-registration/components/enp-accreditation-progress-banner"
 
 export const SiteSidebar = () => {
 	const pathname = usePathname()

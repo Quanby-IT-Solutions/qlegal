@@ -48,7 +48,8 @@ export function CertificatePreviewDialog({
 								<Award className="text-muted-foreground mx-auto h-8 w-8" />
 							</div>
 							<p className="text-muted-foreground text-sm">
-								Certificate preview is temporarily unavailable while we rebuild the signing integration.
+								Certificate preview is temporarily unavailable while we rebuild the signing
+								integration.
 							</p>
 						</div>
 					</div>

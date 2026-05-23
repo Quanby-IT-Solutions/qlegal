@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 const debugLogsEnabled = env.NODE_ENV !== "production"
 const DOCONCHAIN_FETCH_TIMEOUT_MS = 15_000
@@ -110,7 +111,11 @@ export async function autoJoinMemberInDoconchainOrganization(input: {
 				? error.message
 				: String(error)
 		if (debugLogsEnabled) {
-			console.log("[doconchain][auto-join] error", { email, message: msg, totalMs: Date.now() - startMs })
+			console.log("[doconchain][auto-join] error", {
+				email,
+				message: msg,
+				totalMs: Date.now() - startMs,
+			})
 		}
 		throw new Error(msg)
 	}
@@ -225,4 +230,3 @@ export async function autoJoinMemberInDoconchainOrganization(input: {
 	}
 	return { joined: true, alreadyMember: false }
 }
-

@@ -1,10 +1,13 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
 
-type SubOrgDetailsResponse = {
-	message?: string
-	data?: Record<string, unknown>
-} | Record<string, unknown>
+import { env } from "@/env"
+
+type SubOrgDetailsResponse =
+	| {
+			message?: string
+			data?: Record<string, unknown>
+	  }
+	| Record<string, unknown>
 
 function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
 	for (const k of keys) {
@@ -60,7 +63,9 @@ export async function getDoconchainSubOrganizationDetails(input: {
 	const raw = (text ? (JSON.parse(text) as SubOrgDetailsResponse) : {}) as SubOrgDetailsResponse
 	const data =
 		raw && typeof raw === "object" && !Array.isArray(raw)
-			? ("data" in raw && raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : (raw as Record<string, unknown>))
+			? "data" in raw && raw.data && typeof raw.data === "object"
+				? (raw.data as Record<string, unknown>)
+				: (raw as Record<string, unknown>)
 			: ({} as Record<string, unknown>)
 
 	// DocOnChain might use different key naming for these.
@@ -80,4 +85,3 @@ export async function getDoconchainSubOrganizationDetails(input: {
 
 	return { uuid, clientKey, clientSecret, raw }
 }
-

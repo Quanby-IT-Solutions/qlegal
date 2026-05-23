@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server"
 import { eq } from "drizzle-orm"
 
+import { downloadDoconchainSealedProject } from "@/services/doconchain/projects/download-sealed-project"
+import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
 import { db } from "@/services/drizzle/db"
 import { documents } from "@/services/drizzle/schema/document"
 import { auth } from "@/services/next-auth"
-import { getDoconchainProjectDetails } from "@/services/doconchain/projects/get-project-details"
-import { downloadDoconchainSealedProject } from "@/services/doconchain/projects/download-sealed-project"
+
 import { getSubOrgCredsForMemberEmail } from "@/features/sub-orgs/server/get-sub-org-creds-for-member"
 
-export async function GET(_request: Request, { params }: { params: Promise<{ projectUuid: string }> }) {
+export async function GET(
+	_request: Request,
+	{ params }: { params: Promise<{ projectUuid: string }> }
+) {
 	try {
 		const { projectUuid } = await params
 		const uuid = projectUuid.trim()
@@ -56,7 +60,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 			.filter((u): u is NonNullable<typeof u> => Boolean(u))
 
 		const enpOwner = acceptedUsers.find(
-			u => String(u.role ?? "").trim().toUpperCase() === "ENP" && !!u.email?.trim()
+			u =>
+				String(u.role ?? "")
+					.trim()
+					.toUpperCase() === "ENP" && !!u.email?.trim()
 		)
 		const ownerEmail = enpOwner?.email?.trim().toLowerCase()
 		if (!ownerEmail) return new NextResponse("Missing ENP email", { status: 500 })
@@ -84,7 +91,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 			email: ownerEmail,
 			getSubOrgCredsForEmail,
 		})
-		const filename = result.filename ?? (doc.name?.toLowerCase().endsWith(".pdf") ? doc.name : `${doc.name}.pdf`)
+		const filename =
+			result.filename ?? (doc.name?.toLowerCase().endsWith(".pdf") ? doc.name : `${doc.name}.pdf`)
 
 		return new NextResponse(new Uint8Array(result.buffer), {
 			headers: {
@@ -95,7 +103,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 		})
 	} catch (error) {
 		console.error("DocOnChain signed stream error:", error)
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		if (status === 425) {
 			return new NextResponse("Document is still being processed...", { status: 425 })
 		}
@@ -105,4 +114,3 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 		return new NextResponse("Internal server error", { status: 500 })
 	}
 }
-

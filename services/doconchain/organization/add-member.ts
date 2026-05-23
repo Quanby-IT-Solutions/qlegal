@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
 	const trimmed = fullName.trim()
@@ -59,4 +60,3 @@ export async function addMemberInDoconchainOrganization(input: {
 
 	return { invited: true, alreadyMember: false }
 }
-

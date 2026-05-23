@@ -4,8 +4,8 @@
 
 ---
 
-  Outcomes and decisions from that discussion can be summarized and added here as follow-up notes.
+Outcomes and decisions from that discussion can be summarized and added here as follow-up notes.
 
 ---
 
-*For questions or more detail on any item, reach out to the team.*
+_For questions or more detail on any item, reach out to the team._

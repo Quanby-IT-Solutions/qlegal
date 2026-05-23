@@ -1,8 +1,12 @@
-import { env } from "@/env"
-
-import { createMetadataConsolidated } from "@/services/supreme-court/api/metadata"
-import { getPresignedUrl, registerFileMetadata, uploadFileToS3 } from "@/services/supreme-court/api/file-upload"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
+import {
+	getPresignedUrl,
+	registerFileMetadata,
+	uploadFileToS3,
+} from "@/services/supreme-court/api/file-upload"
+import { createMetadataConsolidated } from "@/services/supreme-court/api/metadata"
+
+import { env } from "@/env"
 
 type NotarialAct =
 	// Minimal shape we need from the `notarialActs` row for SC sync.
@@ -80,7 +84,10 @@ function parseAddress(addressText: string | null | undefined): {
 	// Try to parse common formats
 	// Format 1: "Street, Barangay, City Province"
 	// Format 2: "Street Barangay City Province"
-	const parts = addressText.split(",").map(p => p.trim()).filter(Boolean)
+	const parts = addressText
+		.split(",")
+		.map(p => p.trim())
+		.filter(Boolean)
 
 	if (parts.length >= 3) {
 		const cityProvince = parts.slice(2).join(", ").trim()
@@ -166,7 +173,8 @@ export async function syncNotarialActToSupremeCourt(
 		console.log(`✅ Commission status verified: ${commissionStatus.commissionStatus}`)
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		// Validation error (status is inactive) - throw it
 		if (error instanceof Error && message.includes("Cannot sync")) {
 			throw error
@@ -220,8 +228,10 @@ export async function syncNotarialActToSupremeCourt(
 	]
 
 	// Build witnesses list (if witness exists)
-	const witnesses: Array<{ witnessName: string; witnessAddress: { homeStreet: string; barangay: string; cityProvince: string } }> =
-		[]
+	const witnesses: Array<{
+		witnessName: string
+		witnessAddress: { homeStreet: string; barangay: string; cityProvince: string }
+	}> = []
 	if (act.witnessName) {
 		const witnessAddress = parseAddress(act.principalAddress) // Use principal address as fallback if no separate witness address
 		witnesses.push({
@@ -231,8 +241,7 @@ export async function syncNotarialActToSupremeCourt(
 	}
 
 	// Map workflow to modeOfNotarization: REN = Remote (video), IEN = In-person
-	const modeOfNotarization: "In-person" | "Remote" =
-		act.workflow === "REN" ? "Remote" : "In-person"
+	const modeOfNotarization: "In-person" | "Remote" = act.workflow === "REN" ? "Remote" : "In-person"
 
 	// Create consolidated request (POST /public-use/consolidated - metadata + principals + witnesses in one call)
 	const consolidatedRequest = {

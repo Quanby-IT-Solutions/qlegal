@@ -13,8 +13,9 @@ const FALLBACK_BASE_URL = "https://ind-state.idv.hyperverge.co"
 const CONFIGURED_BASE_URL = (env.HYPERVERGE_API_URL || DEFAULT_BASE_URL).replace(/\/$/, "")
 
 // Auth token API lives on idv host; avoid using api.hyperverge.com which does not host /v2/auth/token
-const AUTH_BASE_PRIMARY =
-	CONFIGURED_BASE_URL.includes("idv.hyperverge") ? CONFIGURED_BASE_URL : DEFAULT_BASE_URL
+const AUTH_BASE_PRIMARY = CONFIGURED_BASE_URL.includes("idv.hyperverge")
+	? CONFIGURED_BASE_URL
+	: DEFAULT_BASE_URL
 
 const HYPERVERGE_APP_ID = env.HYPERVERGE_APP_ID || ""
 const HYPERVERGE_APP_KEY = env.HYPERVERGE_APP_KEY || ""
@@ -41,9 +42,7 @@ export interface AuthTokenResponse {
  * Get an auth token for the HyperVerge Web SDK.
  * Uses the same transactionId and workflowId that will be passed to the SDK.
  */
-export async function getHyperVergeAuthToken(
-	params: GetAuthTokenParams
-): Promise<string> {
+export async function getHyperVergeAuthToken(params: GetAuthTokenParams): Promise<string> {
 	if (!HYPERVERGE_APP_ID || !HYPERVERGE_APP_KEY) {
 		throw new Error(
 			"HyperVerge credentials not configured. Set HYPERVERGE_APP_ID and HYPERVERGE_APP_KEY in .env"

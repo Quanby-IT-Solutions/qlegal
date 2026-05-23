@@ -1,17 +1,20 @@
 "use client"
 
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import {
-	type Dispatch,
-	type SetStateAction,
-	useCallback,
-	useMemo,
-	useState,
-} from "react"
+	functionalUpdate,
+	getCoreRowModel,
+	useReactTable,
+	type ColumnDef,
+	type ColumnOrderState,
+	type PaginationState,
+	type SortingState,
+} from "@tanstack/react-table"
 import { format } from "date-fns"
 import {
-	CloudUpload,
 	ChevronDown,
 	ChevronRight,
+	CloudUpload,
 	Copy,
 	Download,
 	Eye,
@@ -19,23 +22,6 @@ import {
 	Hash,
 	Loader2,
 } from "lucide-react"
-import {
-	type ColumnDef,
-	type ColumnOrderState,
-	type PaginationState,
-	type SortingState,
-	functionalUpdate,
-	getCoreRowModel,
-	useReactTable,
-} from "@tanstack/react-table"
-
-import {
-	DataGrid,
-	DataGridContainer,
-} from "@/components/reui/data-grid/data-grid"
-import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination"
-import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
-import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 
 import { Button } from "@/core/components/ui/button"
 import {
@@ -44,6 +30,11 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/core/components/ui/tooltip"
+
+import { DataGrid, DataGridContainer } from "@/components/reui/data-grid/data-grid"
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination"
+import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
+import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 
 export type SortBy =
 	| "executedAt"
@@ -277,9 +268,7 @@ export function NotarialRegistryDataGrid({
 											onClick={() => onCopyNrid(act.supremeCourtRegistryId!)}
 										>
 											{copiedNrid === act.supremeCourtRegistryId ? (
-												<span className="text-xs text-green-600 dark:text-green-400">
-													COPIED
-												</span>
+												<span className="text-xs text-green-600 dark:text-green-400">COPIED</span>
 											) : (
 												<Copy className="size-3" />
 											)}
@@ -368,10 +357,7 @@ export function NotarialRegistryDataGrid({
 				accessorFn: row => row.fees ?? null,
 				cell: ({ row }) => {
 					const f = row.original.fees
-					return f !== null &&
-						f !== undefined &&
-						typeof f === "number" &&
-						!Number.isNaN(f) ? (
+					return f !== null && f !== undefined && typeof f === "number" && !Number.isNaN(f) ? (
 						<span className="text-xs font-medium">₱ {f.toFixed(2)}</span>
 					) : (
 						<span className="text-muted-foreground text-xs">—</span>
@@ -386,7 +372,7 @@ export function NotarialRegistryDataGrid({
 				id: "workflow",
 				header: "Notarization",
 				cell: ({ row }) => (
-					<p className="text-xs font-medium leading-snug break-words whitespace-normal">
+					<p className="text-xs leading-snug font-medium break-words whitespace-normal">
 						{formatWorkflowLabel(row.original.workflow)}
 					</p>
 				),
@@ -484,11 +470,7 @@ export function NotarialRegistryDataGrid({
 								title={isOpen ? "Collapse details" : "Expand details"}
 								aria-expanded={isOpen}
 							>
-								{isOpen ? (
-									<ChevronDown className="size-4" />
-								) : (
-									<ChevronRight className="size-4" />
-								)}
+								{isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
 							</Button>
 						</div>
 					)

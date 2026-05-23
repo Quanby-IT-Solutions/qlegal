@@ -23,8 +23,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { Textarea } from "@/core/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/components/ui/tabs"
+import { Textarea } from "@/core/components/ui/textarea"
 import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
@@ -136,7 +136,11 @@ export function MeetingDocumentUpload({
 		{ folderId: importFolderId ?? "" },
 		{
 			enabled:
-				isOpen && uploadSource === "vault" && vaultStep === "confirm" && !!importFolderId && !!meetingId,
+				isOpen &&
+				uploadSource === "vault" &&
+				vaultStep === "confirm" &&
+				!!importFolderId &&
+				!!meetingId,
 			staleTime: 15_000,
 		}
 	)
@@ -187,7 +191,9 @@ export function MeetingDocumentUpload({
 					}
 				).docoChain
 				if (doco?.pendingManual) {
-					toast.message("The notary can create the DocOnChain project from the document card when ready.")
+					toast.message(
+						"The notary can create the DocOnChain project from the document card when ready."
+					)
 				} else if (doco?.projectCreated === false && doco?.error) {
 					toast.error("DocOnChain is temporarily unavailable", {
 						description: doco.error,
@@ -701,7 +707,7 @@ export function MeetingDocumentUpload({
 					<TabsContent value="vault" className="mt-0 space-y-4">
 						{vaultStep === "browse" ? (
 							<>
-								<div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+								<div className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
 									<button
 										type="button"
 										className="hover:text-foreground rounded px-1 underline-offset-2 hover:underline"
@@ -821,8 +827,7 @@ export function MeetingDocumentUpload({
 										<ul className="space-y-1">
 											{treeFiles.map(f => {
 												const isPdf =
-													f.mimeType === "application/pdf" ||
-													f.name.toLowerCase().endsWith(".pdf")
+													f.mimeType === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
 												const ok = isPdf && f.size > 0 && f.size <= maxMeetingBytes
 												return (
 													<li

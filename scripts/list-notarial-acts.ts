@@ -4,10 +4,11 @@
  */
 import "dotenv/config"
 
-import { db } from "@/services/drizzle/db"
-import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { users } from "@/services/drizzle/schema/auth"
 import { desc, eq } from "drizzle-orm"
+
+import { db } from "@/services/drizzle/db"
+import { users } from "@/services/drizzle/schema/auth"
+import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
 
 async function main() {
 	console.log("🔵 Listing notarial acts...\n")

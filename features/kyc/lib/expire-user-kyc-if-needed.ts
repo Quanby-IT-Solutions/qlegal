@@ -1,10 +1,11 @@
 import { and, eq, isNotNull } from "drizzle-orm"
 
-import { env } from "@/env"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
+
+import { env } from "@/env"
 
 const MIN_KYC_VERIFICATION_VALIDITY_DAYS = 14
 
@@ -12,6 +13,10 @@ const MIN_KYC_VERIFICATION_VALIDITY_DAYS = 14
  * If the user's KYC verification is older than `KYC_VERIFICATION_VALIDITY_DAYS`, reset them to
  * require a new HyperVerge flow and mark local ID rows as no longer verified (HyperVerge purges
  * vendor-side results on a similar window).
+ *
+ * Self-heals when `users.kyc_verified_at` is stale or null but a recent verified `kyc_sessions`
+ * row exists — repairs the user row instead of expiring it. This avoids wrongly resetting users
+ * to NOT_STARTED on every page reload when the user-row timestamp got out of sync.
  *
  * Idempotent: repeated calls after expiry are no-ops.
  *
@@ -148,6 +153,14 @@ export async function expireUserKycIfNeeded(userId: string): Promise<boolean> {
 				})
 				.where(eq(users.id, userId))
 		}
+
+		console.warn("[expireUserKycIfNeeded] Expiring KYC", {
+			userId,
+			userVerifiedAt: user.kycVerifiedAt,
+			sessionVerifiedAt: latestVerifiedSession?.verifiedAt,
+			effectiveVerifiedAt,
+			ageDays: Math.round(ageMs / (24 * 60 * 60 * 1000)),
+		})
 
 		await db
 			.update(users)

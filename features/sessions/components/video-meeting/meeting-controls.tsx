@@ -294,7 +294,7 @@ export const MeetingControls = React.memo(function MeetingControls({
 						</TooltipTrigger>
 						<TooltipContent side="top">
 							{isEndMeetingDisabled
-								? endMeetingDisabledReason ?? "You cannot end this session"
+								? (endMeetingDisabledReason ?? "You cannot end this session")
 								: "End session"}
 						</TooltipContent>
 					</Tooltip>

@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto"
-
 import { TRPCError } from "@trpc/server"
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
 import { z } from "zod/v4"
@@ -7,18 +6,18 @@ import { z } from "zod/v4"
 import { getUrl } from "@/core/lib/get-url"
 import { getFullName } from "@/core/lib/utils"
 
-import { sendVaultFolderShareEmail } from "@/services/react-email/lib/send.vault-folder-share"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import {
 	principalVaultFiles,
-	principalVaultFolderShares,
 	principalVaultFolders,
+	principalVaultFolderShares,
 	principalVaultShareFileComments,
 } from "@/services/drizzle/schema/principal-vault"
+import { randomId } from "@/services/drizzle/utils"
+import { sendVaultFolderShareEmail } from "@/services/react-email/lib/send.vault-folder-share"
 import { getServiceRoleClient } from "@/services/supabase"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
-import { randomId } from "@/services/drizzle/utils"
 
 import {
 	isVaultFileInSharedFolderTree,
@@ -159,7 +158,10 @@ export const principalVaultRouter = createTRPCRouter({
 			const fileWhere =
 				input.parentId === null
 					? and(eq(principalVaultFiles.userId, userId), isNull(principalVaultFiles.folderId))
-					: and(eq(principalVaultFiles.userId, userId), eq(principalVaultFiles.folderId, input.parentId))
+					: and(
+							eq(principalVaultFiles.userId, userId),
+							eq(principalVaultFiles.folderId, input.parentId)
+						)
 
 			const files = await ctx.db.query.principalVaultFiles.findMany({
 				where: fileWhere,
@@ -261,7 +263,10 @@ export const principalVaultRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 			const folder = await ctx.db.query.principalVaultFolders.findFirst({
-				where: and(eq(principalVaultFolders.id, input.id), eq(principalVaultFolders.userId, userId)),
+				where: and(
+					eq(principalVaultFolders.id, input.id),
+					eq(principalVaultFolders.userId, userId)
+				),
 				columns: { id: true, parentId: true },
 			})
 			if (!folder) {
@@ -288,7 +293,9 @@ export const principalVaultRouter = createTRPCRouter({
 			await ctx.db
 				.update(principalVaultFolders)
 				.set({ name: input.name })
-				.where(and(eq(principalVaultFolders.id, input.id), eq(principalVaultFolders.userId, userId)))
+				.where(
+					and(eq(principalVaultFolders.id, input.id), eq(principalVaultFolders.userId, userId))
+				)
 
 			return { ok: true as const }
 		}),
@@ -298,7 +305,10 @@ export const principalVaultRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const userId = ctx.session.user.id
 			const folder = await ctx.db.query.principalVaultFolders.findFirst({
-				where: and(eq(principalVaultFolders.id, input.id), eq(principalVaultFolders.userId, userId)),
+				where: and(
+					eq(principalVaultFolders.id, input.id),
+					eq(principalVaultFolders.userId, userId)
+				),
 				columns: { id: true },
 			})
 			if (!folder) {
@@ -320,7 +330,10 @@ export const principalVaultRouter = createTRPCRouter({
 			}
 
 			const childFile = await ctx.db.query.principalVaultFiles.findFirst({
-				where: and(eq(principalVaultFiles.userId, userId), eq(principalVaultFiles.folderId, input.id)),
+				where: and(
+					eq(principalVaultFiles.userId, userId),
+					eq(principalVaultFiles.folderId, input.id)
+				),
 				columns: { id: true },
 			})
 			if (childFile) {
@@ -332,7 +345,9 @@ export const principalVaultRouter = createTRPCRouter({
 
 			await ctx.db
 				.delete(principalVaultFolders)
-				.where(and(eq(principalVaultFolders.id, input.id), eq(principalVaultFolders.userId, userId)))
+				.where(
+					and(eq(principalVaultFolders.id, input.id), eq(principalVaultFolders.userId, userId))
+				)
 
 			return { ok: true as const }
 		}),
@@ -480,7 +495,9 @@ export const principalVaultRouter = createTRPCRouter({
 			}
 
 			const supabase = getServiceRoleClient()
-			const { error: storageError } = await supabase.storage.from("documents").remove([file.storagePath])
+			const { error: storageError } = await supabase.storage
+				.from("documents")
+				.remove([file.storagePath])
 			if (storageError) {
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
@@ -601,7 +618,10 @@ export const principalVaultRouter = createTRPCRouter({
 
 			const principalUserId = ctx.session.user.id
 			const folder = await ctx.db.query.principalVaultFolders.findFirst({
-				where: and(eq(principalVaultFolders.id, input.folderId), eq(principalVaultFolders.userId, principalUserId)),
+				where: and(
+					eq(principalVaultFolders.id, input.folderId),
+					eq(principalVaultFolders.userId, principalUserId)
+				),
 				columns: { id: true, name: true },
 			})
 			if (!folder) {
@@ -648,7 +668,10 @@ export const principalVaultRouter = createTRPCRouter({
 				getFullName({
 					firstName: principalUser?.firstName,
 					lastName: principalUser?.lastName,
-				}) || ctx.session.user.name?.trim() || principalUser?.email || "A client"
+				}) ||
+				ctx.session.user.name?.trim() ||
+				principalUser?.email ||
+				"A client"
 
 			let emailSent = false
 			if (input.sendEmail) {
@@ -700,7 +723,9 @@ export const principalVaultRouter = createTRPCRouter({
 				getFullName({
 					firstName: principalUser?.firstName,
 					lastName: principalUser?.lastName,
-				}) || principalUser?.email || "Client"
+				}) ||
+				principalUser?.email ||
+				"Client"
 
 			const rawFiles = await listAllFilesInFolderTree(ctx.db, folder.id, share.principalUserId)
 
@@ -849,7 +874,10 @@ export const principalVaultRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			const principalUserId = ctx.session.user.id
 			const file = await ctx.db.query.principalVaultFiles.findFirst({
-				where: and(eq(principalVaultFiles.id, input.fileId), eq(principalVaultFiles.userId, principalUserId)),
+				where: and(
+					eq(principalVaultFiles.id, input.fileId),
+					eq(principalVaultFiles.userId, principalUserId)
+				),
 				columns: { id: true },
 			})
 			if (!file) {

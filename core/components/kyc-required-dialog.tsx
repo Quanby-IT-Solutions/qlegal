@@ -12,7 +12,6 @@ import {
 	kycExpiryRenewalDialogTitle,
 } from "@/core/lib/kyc-reverification-copy"
 
-import { Button } from "@/core/components/ui/button"
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -22,6 +21,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/core/components/ui/alert-dialog"
+import { Button } from "@/core/components/ui/button"
 
 interface KycRequiredDialogProps {
 	open: boolean

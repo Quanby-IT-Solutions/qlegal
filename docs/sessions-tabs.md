@@ -4,11 +4,11 @@ This doc explains when meetings and appointments appear in each tab.
 
 ## Tabs and data sources
 
-| Tab       | Component                 | Data source |
-|----------|---------------------------|-------------|
-| **Ongoing**  | `MeetingsListSection`     | `getUserMeetingsWithDocumentStats` (meetings where you are an **ACCEPTED** participant) |
-| **Upcoming** | `ActiveNotarizationsSection` | Same list **plus** `getUpcomingAppointments` (your PENDING/CONFIRMED appointments) |
-| **Past**     | `HistoryNotarizationsSection` | Historical / completed sessions |
+| Tab          | Component                     | Data source                                                                             |
+| ------------ | ----------------------------- | --------------------------------------------------------------------------------------- |
+| **Ongoing**  | `MeetingsListSection`         | `getUserMeetingsWithDocumentStats` (meetings where you are an **ACCEPTED** participant) |
+| **Upcoming** | `ActiveNotarizationsSection`  | Same list **plus** `getUpcomingAppointments` (your PENDING/CONFIRMED appointments)      |
+| **Past**     | `HistoryNotarizationsSection` | Historical / completed sessions                                                         |
 
 ## When something shows in **Ongoing**
 

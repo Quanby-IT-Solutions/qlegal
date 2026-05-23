@@ -221,9 +221,7 @@ export function MeetingView({ onLeave, meetingId }: { onLeave?: () => void; meet
 						localParticipantId={localParticipantId}
 						onUploadClick={handleUploadClick}
 						isUploadDisabled={!meetingId?.trim() || meetingData.isUploadBlockedByLock}
-						isUploadLoading={
-							meetingData.isPreparingUpload || meetingData.isEnsuringDoconchainToken
-						}
+						isUploadLoading={meetingData.isPreparingUpload || meetingData.isEnsuringDoconchainToken}
 						uploadDisabledReason={
 							meetingData.isUploadBlockedByLock
 								? "Can't upload a file while document uploads are locked"

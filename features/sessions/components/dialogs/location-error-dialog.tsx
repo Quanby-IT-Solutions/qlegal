@@ -13,7 +13,6 @@ import {
 	Server,
 } from "lucide-react"
 
-import { env } from "@/env"
 import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
@@ -29,6 +28,8 @@ import {
 	getLocationRequirementMessage,
 	type LocationVerificationResult,
 } from "@/features/sessions/lib/location-verification"
+
+import { env } from "@/env"
 
 type ErrorReason =
 	| LocationVerificationResult["reason"]
@@ -212,7 +213,8 @@ export function LocationErrorDialog({
 	const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
 	const isDebugMode = env.NEXT_PUBLIC_LOCATION_VERIFICATION_DEBUG === "true"
 	const shouldShowTechnicalDetails = showTechnicalDetails || isDebugMode
-	const isAccuracyLowState = errorReason === "gps_accuracy_low" && debugInfo?.accuracyMeters !== undefined
+	const isAccuracyLowState =
+		errorReason === "gps_accuracy_low" && debugInfo?.accuracyMeters !== undefined
 
 	const technicalDetailsText = useMemo(() => {
 		const lines = [
@@ -310,7 +312,7 @@ export function LocationErrorDialog({
 					)}
 
 					{debugInfo && (
-						<div className="rounded-lg border border-border/60">
+						<div className="border-border/60 rounded-lg border">
 							<button
 								type="button"
 								className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
@@ -322,7 +324,7 @@ export function LocationErrorDialog({
 								/>
 							</button>
 							{shouldShowTechnicalDetails && (
-								<div className="space-y-3 border-t border-border/60 px-4 py-3">
+								<div className="border-border/60 space-y-3 border-t px-4 py-3">
 									<div className="text-muted-foreground space-y-1 text-xs">
 										{debugInfo.errorCode && <p>Error code: {debugInfo.errorCode}</p>}
 										{debugInfo.errorMessage && <p>Error: {debugInfo.errorMessage}</p>}

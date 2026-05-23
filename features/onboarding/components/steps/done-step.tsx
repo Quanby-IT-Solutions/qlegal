@@ -63,8 +63,7 @@ export function DoneStep({
 	const showReminder = recoveryEmailSubmitted && !recoveryEmailVerified
 	const hasPhoneConfigured = !!phoneNumber?.trim()
 	const hasPhoto = !!userImage?.trim()
-	const isSetupComplete =
-		kycVerified && recoveryEmailVerified && hasPhoneConfigured && hasPhoto
+	const isSetupComplete = kycVerified && recoveryEmailVerified && hasPhoneConfigured && hasPhoto
 	const canSnooze = !isSetupComplete && !!onSnooze
 	const summaryItems: SummaryItem[] = [
 		{
@@ -180,10 +179,7 @@ export function DoneStep({
 										</div>
 
 										<Badge
-											className={cn(
-												"mt-0.5 shrink-0",
-												getBadgeClassName(item.statusTone)
-											)}
+											className={cn("mt-0.5 shrink-0", getBadgeClassName(item.statusTone))}
 											variant="outline"
 										>
 											{item.statusLabel}

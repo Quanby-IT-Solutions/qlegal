@@ -185,7 +185,8 @@ export function useRecordingConsent({
 		if (!requiredIds || requiredIds.length === 0) return
 		const allAccepted = requiredIds.every(id => recordingConsentAcceptedIds.has(id))
 		if (allAccepted) {
-			const isInitiator = recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
+			const isInitiator =
+				recordingConsentRequest.initiatorName === (session?.user?.name ?? "Someone")
 			if (isInitiator) void startLocalRecording()
 			setRecordingConsentOpen(false)
 			resetRecordingConsentUi()

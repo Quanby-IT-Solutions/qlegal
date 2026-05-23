@@ -6,10 +6,11 @@
  */
 import "dotenv/config"
 
+import { eq } from "drizzle-orm"
+
 import { db } from "@/services/drizzle/db"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
-import { eq } from "drizzle-orm"
 
 async function main() {
 	const actId = process.argv[2]
@@ -25,7 +26,9 @@ async function main() {
 		console.error("   - <nfn>: Your Notary Facility Number (e.g., NFN-456)")
 		console.error("")
 		console.error("   Example:")
-		console.error("   pnpm update:enp-supreme-court-fields a360c764-b553-42df-9b0d-d7f52fe36eee NPN-123 NFN-456")
+		console.error(
+			"   pnpm update:enp-supreme-court-fields a360c764-b553-42df-9b0d-d7f52fe36eee NPN-123 NFN-456"
+		)
 		console.error("")
 		console.error("   ⚠️  Note: Use REAL credentials from Supreme Court, not test values!")
 		process.exit(1)

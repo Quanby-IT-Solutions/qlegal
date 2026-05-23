@@ -1031,6 +1031,22 @@ export async function checkUserKycStatus() {
 	// - normally we avoid remote calls
 	// - but for Hosted KYC, we want consistency: backfill ID card details exactly once if missing
 	if (kycSession.status === "VERIFIED") {
+		// Self-heal: keep `users.kyc_verified_at` in sync with the verified KYC session so the
+		// expiry guard in `expireUserKycIfNeeded` doesn't wrongly reset the user on next reload.
+		const sessionVerifiedAt = kycSession.verifiedAt ?? kycSession.updatedAt ?? null
+		const userVerifiedTs = user?.kycVerifiedAt?.getTime() ?? 0
+		const sessionVerifiedTs = sessionVerifiedAt?.getTime() ?? 0
+		if (sessionVerifiedAt && userVerifiedTs < sessionVerifiedTs) {
+			await db
+				.update(users)
+				.set({
+					kycStatus: "VERIFIED",
+					kycVerifiedAt: sessionVerifiedAt,
+					kycLastExpiredAt: null,
+				})
+				.where(eq(users.id, session.user.id))
+		}
+
 		if (needsHostedArtifacts) {
 			try {
 				console.log("🧾 Fetching HyperVerge Logs API (backfill hosted KYC artifacts)...", {

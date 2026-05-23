@@ -12,6 +12,7 @@ import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
 import { isEnpCommissionInactiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
+
 import { trpc } from "@/services/trpc/client"
 
 export default function SessionJoinPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,11 +67,9 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<Card className="w-full max-w-sm">
 					<CardContent className="flex flex-col items-center gap-4 py-8">
-						<Loader2 className="size-10 animate-spin text-muted-foreground" />
+						<Loader2 className="text-muted-foreground size-10 animate-spin" />
 						<p className="text-muted-foreground text-sm">
-							{status === "unauthenticated"
-								? "Redirecting to sign in…"
-								: "Loading…"}
+							{status === "unauthenticated" ? "Redirecting to sign in…" : "Loading…"}
 						</p>
 					</CardContent>
 				</Card>
@@ -111,7 +110,7 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<Card className="w-full max-w-sm">
 					<CardContent className="flex flex-col items-center gap-4 py-8">
-						<Loader2 className="size-10 animate-spin text-muted-foreground" />
+						<Loader2 className="text-muted-foreground size-10 animate-spin" />
 						<p className="text-muted-foreground text-sm">Joining session…</p>
 					</CardContent>
 				</Card>
@@ -124,14 +123,10 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 			<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 				<Card className="w-full max-w-sm">
 					<CardContent className="flex flex-col gap-4 py-8">
-						<p className="text-center text-sm text-destructive">
+						<p className="text-destructive text-center text-sm">
 							{joinByLink.error?.message ?? "Could not join this session."}
 						</p>
-						<Button
-							variant="outline"
-							className="w-full"
-							onClick={() => router.push("/sessions")}
-						>
+						<Button variant="outline" className="w-full" onClick={() => router.push("/sessions")}>
 							Back to Sessions
 						</Button>
 					</CardContent>
@@ -144,7 +139,7 @@ export default function SessionJoinPage({ params }: { params: Promise<{ id: stri
 		<div className="from-background via-muted/20 to-background flex min-h-screen items-center justify-center bg-linear-to-br px-4">
 			<Card className="w-full max-w-sm">
 				<CardContent className="flex flex-col items-center gap-4 py-8">
-					<Loader2 className="size-10 animate-spin text-muted-foreground" />
+					<Loader2 className="text-muted-foreground size-10 animate-spin" />
 					<p className="text-muted-foreground text-sm">Redirecting to verification…</p>
 				</CardContent>
 			</Card>

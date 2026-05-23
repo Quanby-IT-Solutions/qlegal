@@ -559,9 +559,9 @@ export function KycStep({
 						<AlertDialogTitle>Verify your identity again</AlertDialogTitle>
 						<AlertDialogDescription className="text-muted-foreground space-y-3 text-sm">
 							<span className="mb-3 block">
-								For security and to align with our verification provider's data retention,
-								identity checks are only considered valid for about {kycValidityDays} days. Your
-								previous verification period has ended, so we need a fresh verification.
+								For security and to align with our verification provider's data retention, identity
+								checks are only considered valid for about {kycValidityDays} days. Your previous
+								verification period has ended, so we need a fresh verification.
 							</span>
 							<span className="block">
 								The provider may no longer return full details for your old check. When you

@@ -5,13 +5,7 @@
  */
 const URL_REGEX = /(https?:\/\/[^\s]+)/g
 
-export function MessageContent({
-	content,
-	className,
-}: {
-	content: string
-	className?: string
-}) {
+export function MessageContent({ content, className }: { content: string; className?: string }) {
 	const parts = content.split(URL_REGEX)
 	const isSameOrigin = (href: string) => {
 		if (typeof window === "undefined") return false
@@ -34,10 +28,8 @@ export function MessageContent({
 						<a
 							key={i}
 							href={href}
-							className="underline break-all hover:opacity-90"
-							{...(sameOrigin
-								? {}
-								: { target: "_blank", rel: "noopener noreferrer" })}
+							className="break-all underline hover:opacity-90"
+							{...(sameOrigin ? {} : { target: "_blank", rel: "noopener noreferrer" })}
 						>
 							{part}
 						</a>
