@@ -157,10 +157,7 @@ export function IdentityVerificationCard() {
 		Boolean(statusResult?.needsReview) || statusResult?.status === "needs_review"
 
 	// DB + status check + JWT can disagree after expiry re-verify; never let stale NOT_STARTED hide VERIFIED.
-	const effectiveKycStatus = resolveDisplayKycStatus(
-		userInfo?.kycStatus,
-		statusResult?.kycStatus
-	)
+	const effectiveKycStatus = resolveDisplayKycStatus(userInfo?.kycStatus, statusResult?.kycStatus)
 	const isExpiryRenewal =
 		effectiveKycStatus === "NOT_STARTED" && Boolean(userInfo?.kycLastExpiredAt)
 
