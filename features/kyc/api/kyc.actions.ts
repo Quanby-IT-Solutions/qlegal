@@ -226,6 +226,10 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 		where: eq(kycSessions.userId, userId),
 		orderBy: (table, { desc }) => [desc(table.createdAt)],
 	})
+	const latestVerifiedSession = await db.query.kycSessions.findFirst({
+		where: and(eq(kycSessions.userId, userId), eq(kycSessions.status, "VERIFIED")),
+		orderBy: (table, { desc }) => [desc(table.verifiedAt), desc(table.updatedAt), desc(table.createdAt)],
+	})
 
 	const dbUser = await db.query.users.findFirst({
 		where: eq(users.id, userId),
@@ -245,33 +249,33 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 		}
 	}
 
-	if (!latestSession || latestSession.status === "NOT_STARTED") {
+	const latestVerifiedAt =
+		latestVerifiedSession?.verifiedAt ??
+		latestVerifiedSession?.updatedAt ??
+		latestVerifiedSession?.createdAt ??
+		null
+	const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+	const hasValidVerifiedSession =
+		latestVerifiedSession && latestVerifiedAt
+			? Date.now() - latestVerifiedAt.getTime() < validityMs
+			: false
+
+	const sourceSession = hasValidVerifiedSession ? latestVerifiedSession : latestSession
+
+	if (!sourceSession || sourceSession.status === "NOT_STARTED") {
 		return {
 			kycStatus: dbUser.kycStatus ?? "NOT_STARTED",
 			kycVerifiedAt: dbUser.kycVerifiedAt,
 			kycLastExpiredAt: dbUser.kycLastExpiredAt,
-			latestSession: latestSession ?? null,
+			latestSession: sourceSession ?? null,
 		}
 	}
 
-	const nextStatus = latestSession.status
+	const nextStatus = sourceSession.status
 	const nextVerifiedAt =
 		nextStatus === "VERIFIED"
-			? (latestSession.verifiedAt ?? latestSession.updatedAt ?? latestSession.createdAt)
+			? (sourceSession.verifiedAt ?? sourceSession.updatedAt ?? sourceSession.createdAt)
 			: null
-
-	if (nextStatus === "VERIFIED" && nextVerifiedAt) {
-		const validityMs = env.KYC_VERIFICATION_VALIDITY_DAYS * 24 * 60 * 60 * 1000
-		const isExpired = Date.now() - nextVerifiedAt.getTime() >= validityMs
-		if (isExpired) {
-			return {
-				kycStatus: dbUser.kycStatus ?? "NOT_STARTED",
-				kycVerifiedAt: dbUser.kycVerifiedAt,
-				kycLastExpiredAt: dbUser.kycLastExpiredAt,
-				latestSession,
-			}
-		}
-	}
 
 	const nextLastExpiredAt = nextStatus === "VERIFIED" ? null : dbUser.kycLastExpiredAt
 
@@ -295,7 +299,7 @@ async function syncUserKycStatusFromLatestSession(userId: string): Promise<{
 		kycStatus: nextStatus,
 		kycVerifiedAt: nextVerifiedAt,
 		kycLastExpiredAt: nextLastExpiredAt,
-		latestSession,
+		latestSession: sourceSession,
 	}
 }
 
