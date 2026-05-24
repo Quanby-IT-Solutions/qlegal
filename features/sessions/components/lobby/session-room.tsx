@@ -54,8 +54,7 @@ export function SessionRoom({ id, onLeave }: SessionRoomProps) {
 	const sessionKyc =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
 	const kycJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKyc)
-	const tokenEnabled =
-		status === "authenticated" && !kycJoinBlocked && Boolean(id?.trim())
+	const tokenEnabled = status === "authenticated" && !kycJoinBlocked && Boolean(id?.trim())
 
 	const { getById, getToken } = useMeetings()
 	const { data: meeting, isLoading: isMeetingLoading, error: meetingError } = getById(id)

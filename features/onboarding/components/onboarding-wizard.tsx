@@ -1,7 +1,6 @@
 "use client"
 
 /** @deprecated `/onboarding` redirects to Profile; wizard not mounted in production routing. */
-
 import { useEffect, useState } from "react"
 import { CircleArrowRight, Logout01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"

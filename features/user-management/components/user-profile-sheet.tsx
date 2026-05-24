@@ -32,8 +32,7 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 	const { data: session } = useSession()
 	const utils = trpc.useUtils()
 
-	const isAdmin =
-		session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN"
+	const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN"
 
 	const { data: user, isLoading } = trpc.userManagement.getById.useQuery(
 		{ id: userId },
@@ -60,25 +59,27 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 		setCreditsToTransferOnly("")
 	}, [open, user])
 
-	const provisionSubOrgMutation = trpc.userManagement.provisionEnpDoconchainSubOrganization.useMutation({
-		onSuccess: async data => {
-			toast.success(
-				data.created
-					? `Created DocOnChain sub-org (${data.subOrgId}).`
-					: `ENP already has a DocOnChain sub-org (${data.subOrgId}).`
-			)
-			await utils.userManagement.getById.invalidate({ id: userId })
-		},
-		onError: err => toast.error(err.message || "Failed to provision ENP sub-organization."),
-	})
+	const provisionSubOrgMutation =
+		trpc.userManagement.provisionEnpDoconchainSubOrganization.useMutation({
+			onSuccess: async data => {
+				toast.success(
+					data.created
+						? `Created DocOnChain sub-org (${data.subOrgId}).`
+						: `ENP already has a DocOnChain sub-org (${data.subOrgId}).`
+				)
+				await utils.userManagement.getById.invalidate({ id: userId })
+			},
+			onError: err => toast.error(err.message || "Failed to provision ENP sub-organization."),
+		})
 
-	const transferCreditsMutation = trpc.userManagement.transferCreditsToEnpSubOrganization.useMutation({
-		onSuccess: async data => {
-			toast.success(`Transferred ${data.transferredCredits} credits.`)
-			await utils.userManagement.getById.invalidate({ id: userId })
-		},
-		onError: err => toast.error(err.message || "Failed to transfer credits."),
-	})
+	const transferCreditsMutation =
+		trpc.userManagement.transferCreditsToEnpSubOrganization.useMutation({
+			onSuccess: async data => {
+				toast.success(`Transferred ${data.transferredCredits} credits.`)
+				await utils.userManagement.getById.invalidate({ id: userId })
+			},
+			onError: err => toast.error(err.message || "Failed to transfer credits."),
+		})
 
 	const clearSubOrgMutation = trpc.userManagement.clearEnpDoconchainSubOrg.useMutation({
 		onSuccess: async () => {
@@ -103,14 +104,19 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 				form.set("photo", subOrgPhoto, subOrgPhoto.name)
 
 				const res = await fetch("/api/doconchain/organizations/sub", { method: "POST", body: form })
-				const json = (await res.json().catch(() => null)) as null | { error?: string; subOrgId?: string }
+				const json = (await res.json().catch(() => null)) as null | {
+					error?: string
+					subOrgId?: string
+				}
 				if (!res.ok) {
 					throw new Error(json?.error || `Failed to create sub-org (${res.status}).`)
 				}
 				toast.success(`Created DocOnChain sub-org (${json?.subOrgId ?? "ok"}).`)
 				await utils.userManagement.getById.invalidate({ id: userId })
 			} catch (err) {
-				toast.error(err instanceof Error ? err.message : "Failed to provision ENP sub-organization.")
+				toast.error(
+					err instanceof Error ? err.message : "Failed to provision ENP sub-organization."
+				)
 			} finally {
 				setProvisionViaApiPending(false)
 			}
@@ -309,7 +315,7 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 											<>
 												<div className="space-y-1">
 													<p className="text-sm font-medium">Sub-org ID</p>
-													<p className="text-muted-foreground break-all text-sm">
+													<p className="text-muted-foreground text-sm break-all">
 														{user.enpProfile.doconchainSubOrgId}
 													</p>
 												</div>
@@ -325,7 +331,9 @@ export function UserProfileSheet({ userId, trigger }: UserProfileSheetProps) {
 														/>
 														<Button
 															type="button"
-															disabled={transferCreditsMutation.isPending || !creditsToTransferOnly.trim()}
+															disabled={
+																transferCreditsMutation.isPending || !creditsToTransferOnly.trim()
+															}
 															onClick={() =>
 																transferCreditsMutation.mutate({
 																	enpId: userId,

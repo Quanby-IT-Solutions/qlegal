@@ -12,4 +12,3 @@ export const metadata = {
 	title: "ENP Course (Placeholder) - Quanby Sign",
 	description: "Placeholder ENP course completion and certificate download.",
 }
-

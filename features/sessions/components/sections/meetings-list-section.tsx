@@ -23,6 +23,8 @@ import {
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
+import { EnpLmsRequiredDialog } from "@/core/components/enp-lms-required-dialog"
+import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar"
 import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
@@ -51,8 +53,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/core/components/ui/select"
-import { EnpLmsRequiredDialog } from "@/core/components/enp-lms-required-dialog"
-import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
 import { isEnpCommissionInactiveForRestrictedOps } from "@/core/lib/enp-lms-guard"
 import {
 	isEnpMeetingCreationBlockedForKyc,
@@ -153,7 +153,10 @@ export function MeetingsListSection() {
 	const sessionKycStatus =
 		typeof session?.user?.kycStatus === "string" ? session.user.kycStatus : undefined
 	/** ENP + Principal: same rule as booking — must verify before joining or starting a session. */
-	const isKycSessionJoinBlocked = isLawyerBookingBlockedForKyc(session?.user?.role, sessionKycStatus)
+	const isKycSessionJoinBlocked = isLawyerBookingBlockedForKyc(
+		session?.user?.role,
+		sessionKycStatus
+	)
 
 	const isEnpCommissionSessionBlocked = isEnpCommissionInactiveForRestrictedOps(
 		session?.user?.role,

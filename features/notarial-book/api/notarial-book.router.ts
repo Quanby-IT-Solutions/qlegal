@@ -1,25 +1,38 @@
 import { TRPCError } from "@trpc/server"
-import { type InferSelectModel, and, asc, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm"
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	ilike,
+	inArray,
+	isNotNull,
+	or,
+	type InferSelectModel,
+} from "drizzle-orm"
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
-import { env } from "@/env"
+
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"
-import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { documents } from "@/services/drizzle/schema/document"
+import { documentSigners } from "@/services/drizzle/schema/document-signers"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { idCardDetails } from "@/services/drizzle/schema/id-card-details"
 import { legalRegistrations } from "@/services/drizzle/schema/legal-registration"
 import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-book"
+import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
 import { getServiceRoleClient } from "@/services/supabase"
 import { getDocumentPublicUrl } from "@/services/supabase/signed-url"
 import { getCommissionStatus } from "@/services/supreme-court/api/commission-status"
 import { syncNotarialActToSupremeCourt } from "@/services/supreme-court/lib/sync-notarial-act"
 import { isConfigured } from "@/services/supreme-court/lib/token-cache"
 import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+import { env } from "@/env"
 
 const getNotarialBookSchema = z.object({
 	page: z.number().min(1).default(1),
@@ -387,11 +400,7 @@ export const notarialBookRouter = createTRPCRouter({
 				where: eq(enpProfiles.userId, userId),
 			})
 			const nfn = env.SUPREME_COURT_NFN
-			if (
-				!enpProfile?.notaryPublicNumber ||
-				!nfn ||
-				!enpProfile?.rollNo
-			) {
+			if (!enpProfile?.notaryPublicNumber || !nfn || !enpProfile?.rollNo) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message: "ENP profile missing NPN or RN, or SUPREME_COURT_NFN not set",
@@ -1094,9 +1103,7 @@ export const notarialBookRouter = createTRPCRouter({
 		})
 
 		const notaryPublicName =
-			getFullName(user).trim() ||
-			user?.email?.trim() ||
-			"Electronic Notary Public"
+			getFullName(user).trim() || user?.email?.trim() || "Electronic Notary Public"
 
 		const acts = await ctx.db
 			.select()

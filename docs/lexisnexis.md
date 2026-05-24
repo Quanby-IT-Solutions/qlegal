@@ -20,11 +20,11 @@ Restrict access to LexisNexis-backed features by role (e.g. ENP, ADMIN) as with 
 
 ## Integration options
 
-| Area              | Description |
-|-------------------|-------------|
-| Identity / KYC    | Integrate LexisNexis IDV or risk APIs for signer verification before or during notarization. |
-| Legal research    | Link to LexisNexis research (e.g. deep links or API) for ENP/legal users. |
-| Compliance        | Use LexisNexis risk/compliance APIs for sanctions, PEP, or AML checks if required. |
+| Area           | Description                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| Identity / KYC | Integrate LexisNexis IDV or risk APIs for signer verification before or during notarization. |
+| Legal research | Link to LexisNexis research (e.g. deep links or API) for ENP/legal users.                    |
+| Compliance     | Use LexisNexis risk/compliance APIs for sanctions, PEP, or AML checks if required.           |
 
 ## API / configuration (placeholder)
 

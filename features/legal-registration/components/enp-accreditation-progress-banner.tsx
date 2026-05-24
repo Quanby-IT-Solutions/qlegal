@@ -3,29 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { ArrowRight, Check, ChevronDown, Circle, Clock, Play, X } from "lucide-react"
 import { useSession } from "next-auth/react"
-import {
-	ArrowRight,
-	Check,
-	ChevronDown,
-	Circle,
-	Clock,
-	Play,
-	X,
-} from "lucide-react"
-
-import { Badge } from "@/components/reui/badge"
-import {
-	Timeline,
-	TimelineContent,
-	TimelineDate,
-	TimelineHeader,
-	TimelineIndicator,
-	TimelineItem,
-	TimelineSeparator,
-	TimelineTitle,
-} from "@/components/reui/timeline"
-import { cn } from "@/core/lib/utils"
 
 import {
 	Tooltip,
@@ -40,7 +19,11 @@ import {
 	useSidebar,
 } from "@/core/components/animate-ui/components/radix/sidebar"
 import { Button } from "@/core/components/ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/components/ui/collapsible"
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/core/components/ui/collapsible"
 import {
 	Dialog,
 	DialogContent,
@@ -49,8 +32,21 @@ import {
 	DialogTitle,
 } from "@/core/components/ui/dialog"
 import { Progress } from "@/core/components/ui/progress"
+import { cn } from "@/core/lib/utils"
 
 import { trpc } from "@/services/trpc/client"
+
+import { Badge } from "@/components/reui/badge"
+import {
+	Timeline,
+	TimelineContent,
+	TimelineDate,
+	TimelineHeader,
+	TimelineIndicator,
+	TimelineItem,
+	TimelineSeparator,
+	TimelineTitle,
+} from "@/components/reui/timeline"
 
 import {
 	ENP_COURSE_CERT_CHANGED_EVENT,
@@ -118,22 +114,18 @@ function PageStepsTimeline({
 	return (
 		<div
 			className={cn(
-				"min-w-0 w-full px-1 pb-1 sm:px-2",
+				"w-full min-w-0 px-1 pb-1 sm:px-2",
 				compact ? "overflow-x-hidden pt-7" : "overflow-x-auto overscroll-x-contain pt-8"
 			)}
 		>
 			<Timeline
 				orientation="horizontal"
-				className={cn(
-					"w-full min-w-0",
-					compact ? "max-w-full" : "min-w-[560px] md:min-w-full"
-				)}
+				className={cn("w-full min-w-0", compact ? "max-w-full" : "min-w-[560px] md:min-w-full")}
 				value={stepIndex + 1}
 			>
 				{STEPS.map((fullLabel, idx) => {
 					const label = compact ? STEPS_TIMELINE_COMPACT[idx] : fullLabel
-					const state: StepState =
-						stepStates[idx] ?? (idx === stepIndex ? "current" : "upcoming")
+					const state: StepState = stepStates[idx] ?? (idx === stepIndex ? "current" : "upcoming")
 					const stepNum = idx + 1
 					return (
 						<TimelineItem
@@ -141,8 +133,7 @@ function PageStepsTimeline({
 							step={stepNum}
 							className={cn(
 								"min-w-0 ps-0.5 pe-0.5 first:ps-0 last:pe-2",
-								compact &&
-									"group-data-[orientation=horizontal]/timeline:not-last:!pe-2"
+								compact && "group-data-[orientation=horizontal]/timeline:not-last:!pe-2"
 							)}
 						>
 							<TimelineHeader>
@@ -169,10 +160,10 @@ function PageStepsTimeline({
 									className={cn(
 										"flex size-6 shrink-0 items-center justify-center",
 										state === "completed" && "border-none bg-emerald-500 text-white",
-										state === "current" && "border-none bg-primary text-primary-foreground",
-										state === "upcoming" && "border-none bg-muted text-muted-foreground",
+										state === "current" && "bg-primary text-primary-foreground border-none",
+										state === "upcoming" && "bg-muted text-muted-foreground border-none",
 										state === "not_tracked" &&
-											"border-muted-foreground/50 bg-transparent text-muted-foreground border border-dashed"
+											"border-muted-foreground/50 text-muted-foreground border border-dashed bg-transparent"
 									)}
 								>
 									{state === "completed" ? (
@@ -246,7 +237,9 @@ export function EnpAccreditationProgressBanner({
 	const [isClient, setIsClient] = useState(false)
 	const [isDismissed, setIsDismissed] = useState(false)
 	const [isStepsTimelineOpen, setIsStepsTimelineOpen] = useState(false)
-	const [courseCertificateDownloadedAt, setCourseCertificateDownloadedAt] = useState<string | null>(null)
+	const [courseCertificateDownloadedAt, setCourseCertificateDownloadedAt] = useState<string | null>(
+		null
+	)
 
 	useEffect(() => {
 		setIsClient(true)
@@ -401,9 +394,18 @@ export function EnpAccreditationProgressBanner({
 		if (!isEnpProfileComplete) return 2
 		if (!applicationSubmittedForReview) return 3
 		return 4
-	}, [applicationSubmittedForReview, isEnpProfileComplete, mergedCertificateAt, userRole, userStatus])
+	}, [
+		applicationSubmittedForReview,
+		isEnpProfileComplete,
+		mergedCertificateAt,
+		userRole,
+		userStatus,
+	])
 
-	const progressValue = useMemo(() => Math.round(((stepIndex + 1) / STEPS.length) * 100), [stepIndex])
+	const progressValue = useMemo(
+		() => Math.round(((stepIndex + 1) / STEPS.length) * 100),
+		[stepIndex]
+	)
 
 	const stepStates = useMemo<StepState[]>(() => {
 		// IMPORTANT: We do NOT assume earlier steps are completed.
@@ -438,14 +440,23 @@ export function EnpAccreditationProgressBanner({
 		}
 
 		return states
-	}, [application, applicationSubmittedForReview, isEnpProfileComplete, mergedCertificateAt, stepIndex, userRole, userStatus])
+	}, [
+		application,
+		applicationSubmittedForReview,
+		isEnpProfileComplete,
+		mergedCertificateAt,
+		stepIndex,
+		userRole,
+		userStatus,
+	])
 
 	const headline = useMemo(() => {
 		if (application?.status === "REJECTED") return "Your ENP application needs updates"
 		if (application?.status === "DRAFT") return "Finish your ENP application"
 		if (application?.status === "PENDING" || application?.status === "UNDER_REVIEW")
 			return "Your ENP application is under review"
-		if (userRole === "ENP" && userStatus && userStatus !== "ACTIVE") return "Your ENP commission is pending"
+		if (userRole === "ENP" && userStatus && userStatus !== "ACTIVE")
+			return "Your ENP commission is pending"
 		return "ENP accreditation in progress"
 	}, [application?.status, userRole, userStatus])
 
@@ -471,10 +482,7 @@ export function EnpAccreditationProgressBanner({
 
 	if (variant === "sidebar") {
 		const sidebarIcon = (
-			<span
-				className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4"
-				aria-hidden
-			>
+			<span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4" aria-hidden>
 				<Clock className="size-4 shrink-0" />
 			</span>
 		)
@@ -516,18 +524,20 @@ export function EnpAccreditationProgressBanner({
 				>
 					<DialogContent className="bg-card border-border/60 isolate flex max-h-[min(90dvh,42rem)] w-[min(98vw,58rem)] max-w-[min(98vw,58rem)] flex-col gap-3 overflow-hidden border p-5 shadow-xl sm:p-6">
 						<DialogHeader className="space-y-1.5 text-left">
-							<DialogTitle className="text-lg font-semibold leading-tight sm:text-xl">{headline}</DialogTitle>
+							<DialogTitle className="text-lg leading-tight font-semibold sm:text-xl">
+								{headline}
+							</DialogTitle>
 							<DialogDescription className="text-muted-foreground text-sm leading-snug">
 								{subtext}
 							</DialogDescription>
 						</DialogHeader>
-						<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-2 pr-1 pb-1">
+						<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pt-2 pr-1 pb-1">
 							<p className="text-muted-foreground text-xs leading-snug">
 								Submit your application from{" "}
-								<span className="text-foreground font-medium">Open</span> below. After it&apos;s submitted,
-								the checklist advances. Complete your ENP profile from{" "}
-								<span className="text-foreground font-medium">Profile</span> before submitting. Commission
-								Active is set by an administrator after accreditation.
+								<span className="text-foreground font-medium">Open</span> below. After it&apos;s
+								submitted, the checklist advances. Complete your ENP profile from{" "}
+								<span className="text-foreground font-medium">Profile</span> before submitting.
+								Commission Active is set by an administrator after accreditation.
 							</p>
 							<div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
 								<Button
@@ -539,14 +549,24 @@ export function EnpAccreditationProgressBanner({
 								>
 									{mergedCertificateAt ? "View course & certificate" : "Complete LMS course"}
 								</Button>
-								<Button asChild variant="secondary" size="sm" className="h-7 rounded-full px-3 text-xs">
+								<Button
+									asChild
+									variant="secondary"
+									size="sm"
+									className="h-7 rounded-full px-3 text-xs"
+								>
 									<Link href="/auth/legal-registration">View ENP application</Link>
 								</Button>
 							</div>
 							<Collapsible open={sidebarStepsOpen} onOpenChange={setSidebarStepsOpen}>
 								<div className="flex flex-wrap items-center gap-1">
 									<CollapsibleTrigger asChild>
-										<Button type="button" variant="ghost" size="sm" className="-ms-1 h-7 px-2 text-xs">
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											className="-ms-1 h-7 px-2 text-xs"
+										>
 											{sidebarStepsOpen ? "Hide steps" : "Show steps"}
 											<ChevronDown
 												className={
@@ -558,8 +578,8 @@ export function EnpAccreditationProgressBanner({
 										</Button>
 									</CollapsibleTrigger>
 								</div>
-								<CollapsibleContent className="min-h-0 overflow-hidden data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
-									<div className="border-border/50 mt-2 min-h-0 min-w-0 w-full border-t border-dotted bg-card pt-3">
+								<CollapsibleContent className="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 min-h-0 overflow-hidden">
+									<div className="border-border/50 bg-card mt-2 min-h-0 w-full min-w-0 border-t border-dotted pt-3">
 										<PageStepsTimeline
 											variant="dialog"
 											stepIndex={stepIndex}
@@ -575,7 +595,12 @@ export function EnpAccreditationProgressBanner({
 								</p>
 							</div>
 							<div className="flex shrink-0 justify-center pt-1">
-								<Button asChild variant="secondary" size="sm" className="h-7 rounded-full px-8 text-xs">
+								<Button
+									asChild
+									variant="secondary"
+									size="sm"
+									className="h-7 rounded-full px-8 text-xs"
+								>
 									<Link href="/auth/legal-registration">Open</Link>
 								</Button>
 							</div>
@@ -609,14 +634,14 @@ export function EnpAccreditationProgressBanner({
 					<div className="min-w-0 flex-1 space-y-1 md:pr-2">
 						<div className="flex items-center gap-2">
 							<Clock className="text-muted-foreground size-4 shrink-0" />
-							<p className="text-sm font-semibold leading-tight">{headline}</p>
+							<p className="text-sm leading-tight font-semibold">{headline}</p>
 						</div>
 						<p className="text-muted-foreground text-sm leading-snug">{subtext}</p>
 						<p className="text-muted-foreground text-xs leading-snug">
 							Submit your application from{" "}
-							<span className="text-foreground font-medium">View ENP application</span>. After it&apos;s
-							submitted, the checklist advances. Make sure you&apos;ve completed your ENP profile (roll
-							registration, licensing, certifications) from{" "}
+							<span className="text-foreground font-medium">View ENP application</span>. After
+							it&apos;s submitted, the checklist advances. Make sure you&apos;ve completed your ENP
+							profile (roll registration, licensing, certifications) from{" "}
 							<span className="text-foreground font-medium">Profile</span> first. Final step: an
 							administrator activates your commission.
 						</p>
@@ -633,7 +658,12 @@ export function EnpAccreditationProgressBanner({
 							>
 								{mergedCertificateAt ? "View course & certificate" : "Complete LMS course"}
 							</Button>
-							<Button asChild variant="secondary" size="sm" className="h-7 rounded-full px-3 text-xs">
+							<Button
+								asChild
+								variant="secondary"
+								size="sm"
+								className="h-7 rounded-full px-3 text-xs"
+							>
 								<Link href="/auth/legal-registration">View ENP application</Link>
 							</Button>
 							<Button asChild size="sm" className="h-7 rounded-full px-3 text-xs">
@@ -671,8 +701,8 @@ export function EnpAccreditationProgressBanner({
 							</Button>
 						</CollapsibleTrigger>
 					</div>
-					<CollapsibleContent className="data-[state=open]:overflow-visible data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
-						<div className="border-border/50 mt-2 min-w-0 w-full border-t border-dotted pt-3">
+					<CollapsibleContent className="data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:overflow-visible">
+						<div className="border-border/50 mt-2 w-full min-w-0 border-t border-dotted pt-3">
 							<PageStepsTimeline stepIndex={stepIndex} stepStates={stepStates} />
 						</div>
 					</CollapsibleContent>
@@ -692,4 +722,3 @@ export function EnpAccreditationProgressBanner({
 export function EnpAccreditationProgressSidebarBanner() {
 	return <EnpAccreditationProgressBanner variant="sidebar" />
 }
-

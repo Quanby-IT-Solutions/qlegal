@@ -35,7 +35,10 @@ function pickFirstByPaths(payload: unknown, paths: string[]): string | null {
 	return asNonEmptyString(cur)
 }
 
-function findFirstStringDeep(payload: unknown, predicate: (value: string) => boolean): string | null {
+function findFirstStringDeep(
+	payload: unknown,
+	predicate: (value: string) => boolean
+): string | null {
 	if (typeof payload === "string") return predicate(payload) ? payload.trim() : null
 	if (!payload || typeof payload !== "object") return null
 	if (Array.isArray(payload)) {
@@ -139,4 +142,3 @@ export function interpretDoconchainWebhook(payload: unknown): DoconchainWebhookI
 
 	return { ok: true, projectUuid, signerEmail, action, rawEvent }
 }
-

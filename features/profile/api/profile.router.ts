@@ -226,8 +226,7 @@ export const profileRouter = createTRPCRouter({
 			rollNoDate: normalizeString(input.rollNoDate),
 			commissionNo: normalizeString(input.commissionNo),
 			commissionNoValidUntil:
-				(input.commissionNoValidUntil &&
-					formatDateForStamp(input.commissionNoValidUntil)) ||
+				(input.commissionNoValidUntil && formatDateForStamp(input.commissionNoValidUntil)) ||
 				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),
@@ -306,8 +305,7 @@ export const profileRouter = createTRPCRouter({
 		const profileData = {
 			commissionNo: normalizeString(input.commissionNo),
 			commissionNoValidUntil:
-				(input.commissionNoValidUntil &&
-					formatDateForStamp(input.commissionNoValidUntil)) ||
+				(input.commissionNoValidUntil && formatDateForStamp(input.commissionNoValidUntil)) ||
 				normalizeString(input.commissionNoValidUntil),
 			ptrNo: normalizeString(input.ptrNo),
 			ptrNoLocation: normalizeString(input.ptrNoLocation),

@@ -297,11 +297,7 @@ export function LicensingForm() {
 							<FormItem>
 								<FormLabel>Notary Public Number (NPN)</FormLabel>
 								<FormControl>
-									<Input
-										placeholder="e.g., NPN-123"
-										autoComplete="off"
-										{...field}
-									/>
+									<Input placeholder="e.g., NPN-123" autoComplete="off" {...field} />
 								</FormControl>
 								<FormMessage />
 								<p className="text-muted-foreground text-xs">
@@ -312,7 +308,8 @@ export function LicensingForm() {
 					/>
 
 					<p className="text-muted-foreground col-span-full text-xs">
-						Notary Facility Number (NFN) is set in environment (SUPREME_COURT_NFN). Only NPN and Roll Number differ per ENP.
+						Notary Facility Number (NFN) is set in environment (SUPREME_COURT_NFN). Only NPN and
+						Roll Number differ per ENP.
 					</p>
 				</div>
 

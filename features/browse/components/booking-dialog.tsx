@@ -11,8 +11,6 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
 import { KycRequiredDialog } from "@/core/components/kyc-required-dialog"
-import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
-
 import { Button } from "@/core/components/ui/button"
 import {
 	Dialog,
@@ -33,6 +31,7 @@ import {
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
 import { Textarea } from "@/core/components/ui/textarea"
+import { isLawyerBookingBlockedForKyc } from "@/core/lib/kyc-restriction-guards"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -236,116 +235,116 @@ export function BookingDialog({ enpId, enpName, trigger }: BookingDialogProps) {
 							{/* Scrollable form content */}
 							<div className="overflow-y-auto px-1">
 								<div className="space-y-4 pr-1 pb-6">
-								{/* Title */}
-								<FormField
-									control={form.control}
-									name="title"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Title</FormLabel>
-											<FormControl>
-												<Input
-													placeholder="e.g., Property Deed Notarization"
-													disabled={isBookingPending}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								{/* Description */}
-								<FormField
-									control={form.control}
-									name="description"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Description (Optional)</FormLabel>
-											<FormControl>
-												<Textarea
-													placeholder="Add any additional notes or requirements for this booking..."
-													rows={3}
-													disabled={isBookingPending}
-													{...field}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								{/* Service Type Selection */}
-								<FormField
-									control={form.control}
-									name="bookingMode"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Service Type</FormLabel>
-											<FormControl>
-												<SessionTypeSelector
-													value={field.value}
-													onChange={field.onChange}
-													showHeading={false}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								{/* Session Mode Selection - Only for NOTARIZATION */}
-								{watchBookingMode === "NOTARIZATION" && (
+									{/* Title */}
 									<FormField
 										control={form.control}
-										name="workflowType"
+										name="title"
 										render={({ field }) => (
 											<FormItem>
-												<FormLabel>Session Mode</FormLabel>
+												<FormLabel>Title</FormLabel>
 												<FormControl>
-													<div className="space-y-2">
-														<SessionModeSelector
-															value={field.value}
-															onChange={field.onChange}
-															showHeading={false}
-														/>
-													</div>
+													<Input
+														placeholder="e.g., Property Deed Notarization"
+														disabled={isBookingPending}
+														{...field}
+													/>
 												</FormControl>
 												<FormMessage />
 											</FormItem>
 										)}
 									/>
-								)}
-								{/* Date Selection */}
-								<DateTimeSelector control={form.control} disabled={isBookingPending} />
+									{/* Description */}
+									<FormField
+										control={form.control}
+										name="description"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Description (Optional)</FormLabel>
+												<FormControl>
+													<Textarea
+														placeholder="Add any additional notes or requirements for this booking..."
+														rows={3}
+														disabled={isBookingPending}
+														{...field}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									{/* Service Type Selection */}
+									<FormField
+										control={form.control}
+										name="bookingMode"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Service Type</FormLabel>
+												<FormControl>
+													<SessionTypeSelector
+														value={field.value}
+														onChange={field.onChange}
+														showHeading={false}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									{/* Session Mode Selection - Only for NOTARIZATION */}
+									{watchBookingMode === "NOTARIZATION" && (
+										<FormField
+											control={form.control}
+											name="workflowType"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Session Mode</FormLabel>
+													<FormControl>
+														<div className="space-y-2">
+															<SessionModeSelector
+																value={field.value}
+																onChange={field.onChange}
+																showHeading={false}
+															/>
+														</div>
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+									)}
+									{/* Date Selection */}
+									<DateTimeSelector control={form.control} disabled={isBookingPending} />
+								</div>
 							</div>
-						</div>
 
-						{/* Fixed Footer */}
-						<DialogFooter className="pt-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => setOpen(false)}
-								disabled={isBookingPending}
-							>
-								Cancel
-							</Button>
-							<Button type="submit">
-								{isBookingPending ? (
-									<>
-										<Loader2 className="mr-2 size-4 animate-spin" />
-										Booking...
-									</>
-								) : (
-									<>
-										<Video className="mr-2 size-4" />
-										Confirm booking
-									</>
-								)}
-							</Button>
-						</DialogFooter>
-					</form>
-				</Form>
-			</DialogContent>
-		</Dialog>
+							{/* Fixed Footer */}
+							<DialogFooter className="pt-2">
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setOpen(false)}
+									disabled={isBookingPending}
+								>
+									Cancel
+								</Button>
+								<Button type="submit">
+									{isBookingPending ? (
+										<>
+											<Loader2 className="mr-2 size-4 animate-spin" />
+											Booking...
+										</>
+									) : (
+										<>
+											<Video className="mr-2 size-4" />
+											Confirm booking
+										</>
+									)}
+								</Button>
+							</DialogFooter>
+						</form>
+					</Form>
+				</DialogContent>
+			</Dialog>
 		</>
 	)
 }

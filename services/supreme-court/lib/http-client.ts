@@ -77,9 +77,9 @@ export async function get(path: string): Promise<Response> {
 		return fetch(url, {
 			method: "GET",
 			headers: {
-				Authorization: `Bearer ${token}`,
+				"Authorization": `Bearer ${token}`,
 				"Content-Type": "application/json",
-				Accept: "application/json",
+				"Accept": "application/json",
 			},
 		})
 	})
@@ -94,9 +94,9 @@ export async function post(path: string, body: unknown): Promise<Response> {
 		return fetch(url, {
 			method: "POST",
 			headers: {
-				Authorization: `Bearer ${token}`,
+				"Authorization": `Bearer ${token}`,
 				"Content-Type": "application/json",
-				Accept: "application/json",
+				"Accept": "application/json",
 			},
 			body: JSON.stringify(body),
 		})

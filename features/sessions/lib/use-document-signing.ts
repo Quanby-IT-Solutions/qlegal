@@ -40,12 +40,12 @@ export function useDocumentSigning({
 	const [userConfirmedPlottedDocumentIds, setUserConfirmedPlottedDocumentIds] = useState<
 		Set<string>
 	>(new Set())
-	const [preGeneratedPlotLinks, setPreGeneratedPlotLinks] = useState<Map<string, PreGeneratedLinkEntry>>(
-		new Map()
-	)
-	const [preGeneratedSignLinks, setPreGeneratedSignLinks] = useState<Map<string, PreGeneratedLinkEntry>>(
-		new Map()
-	)
+	const [preGeneratedPlotLinks, setPreGeneratedPlotLinks] = useState<
+		Map<string, PreGeneratedLinkEntry>
+	>(new Map())
+	const [preGeneratedSignLinks, setPreGeneratedSignLinks] = useState<
+		Map<string, PreGeneratedLinkEntry>
+	>(new Map())
 	const [downloadingProjectUuid, setDownloadingProjectUuid] = useState<string | null>(null)
 	const [documentSigningStatus] = useState<
 		Map<
@@ -75,9 +75,9 @@ export function useDocumentSigning({
 	const openingPlatformToastIdRef = useRef<string | number | null>(null)
 	const utils = trpc.useUtils()
 
-	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<number | null>(
-		null
-	)
+	const [signingStatusPollingPausedUntil, setSigningStatusPollingPausedUntil] = useState<
+		number | null
+	>(null)
 	const [isRefreshingSigningStatus, setIsRefreshingSigningStatus] = useState(false)
 	const hasShownSigningStatusAuthErrorRef = useRef(false)
 	const hasShownSigningStatusFetchErrorRef = useRef(false)
@@ -299,7 +299,7 @@ export function useDocumentSigning({
 							documentId,
 							email,
 							isPlotting: kind === "plot",
-					  })
+						})
 
 				console.log(
 					"🟣 [DocOnChain] initiateSigning response (redacted)",

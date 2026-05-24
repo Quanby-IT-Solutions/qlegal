@@ -23,8 +23,8 @@ import { notarialActs, notarialBooks } from "@/services/drizzle/schema/notarial-
 import { notarizationRequests } from "@/services/drizzle/schema/notarization-requests"
 import {
 	principalVaultFiles,
-	principalVaultFolderShares,
 	principalVaultFolders,
+	principalVaultFolderShares,
 	principalVaultShareFileComments,
 } from "@/services/drizzle/schema/principal-vault"
 import { signatureRequests } from "@/services/drizzle/schema/signature-requests"
@@ -116,38 +116,44 @@ export const principalVaultFileRelations = relations(principalVaultFiles, ({ one
 	}),
 }))
 
-export const principalVaultFolderShareRelations = relations(principalVaultFolderShares, ({ one, many }) => ({
-	folder: one(principalVaultFolders, {
-		fields: [principalVaultFolderShares.folderId],
-		references: [principalVaultFolders.id],
-	}),
-	principal: one(users, {
-		fields: [principalVaultFolderShares.principalUserId],
-		references: [users.id],
-		relationName: "principalVaultSharePrincipal",
-	}),
-	recipientEnp: one(users, {
-		fields: [principalVaultFolderShares.recipientEnpUserId],
-		references: [users.id],
-		relationName: "principalVaultShareRecipientEnp",
-	}),
-	fileComments: many(principalVaultShareFileComments),
-}))
+export const principalVaultFolderShareRelations = relations(
+	principalVaultFolderShares,
+	({ one, many }) => ({
+		folder: one(principalVaultFolders, {
+			fields: [principalVaultFolderShares.folderId],
+			references: [principalVaultFolders.id],
+		}),
+		principal: one(users, {
+			fields: [principalVaultFolderShares.principalUserId],
+			references: [users.id],
+			relationName: "principalVaultSharePrincipal",
+		}),
+		recipientEnp: one(users, {
+			fields: [principalVaultFolderShares.recipientEnpUserId],
+			references: [users.id],
+			relationName: "principalVaultShareRecipientEnp",
+		}),
+		fileComments: many(principalVaultShareFileComments),
+	})
+)
 
-export const principalVaultShareFileCommentRelations = relations(principalVaultShareFileComments, ({ one }) => ({
-	share: one(principalVaultFolderShares, {
-		fields: [principalVaultShareFileComments.shareId],
-		references: [principalVaultFolderShares.id],
-	}),
-	file: one(principalVaultFiles, {
-		fields: [principalVaultShareFileComments.fileId],
-		references: [principalVaultFiles.id],
-	}),
-	author: one(users, {
-		fields: [principalVaultShareFileComments.authorId],
-		references: [users.id],
-	}),
-}))
+export const principalVaultShareFileCommentRelations = relations(
+	principalVaultShareFileComments,
+	({ one }) => ({
+		share: one(principalVaultFolderShares, {
+			fields: [principalVaultShareFileComments.shareId],
+			references: [principalVaultFolderShares.id],
+		}),
+		file: one(principalVaultFiles, {
+			fields: [principalVaultShareFileComments.fileId],
+			references: [principalVaultFiles.id],
+		}),
+		author: one(users, {
+			fields: [principalVaultShareFileComments.authorId],
+			references: [users.id],
+		}),
+	})
+)
 
 // Document relations
 export const documentRelations = relations(documents, ({ one, many }) => ({

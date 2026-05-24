@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type UpdateSubOrgResponse = {
 	success?: boolean
@@ -87,7 +88,7 @@ export async function updateDoconchainSubOrganization(input: {
 	const raw = (text ? (JSON.parse(text) as UpdateSubOrgResponse) : {}) as UpdateSubOrgResponse
 	const success =
 		raw.success === true ||
-		typeof raw.message === "string" && raw.message.toLowerCase().includes("success")
+		(typeof raw.message === "string" && raw.message.toLowerCase().includes("success"))
 
 	const data = raw.data ?? {}
 
@@ -97,9 +98,8 @@ export async function updateDoconchainSubOrganization(input: {
 		name: (data.name ?? name) as string,
 		email: (data.email ?? email) as string,
 		address: (data.address ?? address) as string,
-		photoUrl: (data.photo_url ?? null) ?? null,
-		subOrganizationTypeName: (data.sub_organization_type_name ?? typeName) ?? null,
+		photoUrl: data.photo_url ?? null ?? null,
+		subOrganizationTypeName: data.sub_organization_type_name ?? typeName ?? null,
 		raw,
 	}
 }
-

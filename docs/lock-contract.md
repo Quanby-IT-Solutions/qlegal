@@ -11,13 +11,13 @@ Full document-freeze lock for document setup actions.
 
 ## Allowed vs Blocked While Locked
 
-| Action | While Locked | Notes |
-| --- | --- | --- |
-| Reorder documents | Blocked | Document list order cannot be changed. |
-| Upload / add documents | Blocked | No new documents can be added. |
-| Signer changes | Blocked | Signer assignment/edits are frozen. |
-| Project creation | Blocked | Creating a new signing project is blocked while locked. |
-| Signing progression | Allowed | Existing signing flow continues using current document/signer order. |
+| Action                 | While Locked | Notes                                                                |
+| ---------------------- | ------------ | -------------------------------------------------------------------- |
+| Reorder documents      | Blocked      | Document list order cannot be changed.                               |
+| Upload / add documents | Blocked      | No new documents can be added.                                       |
+| Signer changes         | Blocked      | Signer assignment/edits are frozen.                                  |
+| Project creation       | Blocked      | Creating a new signing project is blocked while locked.              |
+| Signing progression    | Allowed      | Existing signing flow continues using current document/signer order. |
 
 ## API Error Convention
 

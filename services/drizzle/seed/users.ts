@@ -7,6 +7,7 @@ import { seed } from "drizzle-seed"
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { kycSessions } from "@/services/drizzle/schema/kyc-sessions"
 import { FIXED_TEST_ENPS, generateTestIds, SEED_CONFIG } from "@/services/drizzle/seed/config"
 
 export async function createUsers() {
@@ -67,13 +68,26 @@ export async function createUsers() {
 				.map(user => user.id)
 				.filter((id): id is string => id !== undefined)
 			if (testUserIds.length > 0) {
+				const kycVerifiedAt = new Date()
 				await db
 					.update(users)
 					.set({
 						kycStatus: "VERIFIED",
-						kycVerifiedAt: new Date(),
+						kycVerifiedAt,
 					})
 					.where(inArray(users.id, testUserIds))
+
+				// Also insert matching kyc_sessions rows so reconciliation has positive
+				// evidence and won't wipe users.kycVerifiedAt on /profile reload.
+				await db.insert(kycSessions).values(
+					testUserIds.map(userId => ({
+						userId,
+						transactionId: `seed_${userId}`,
+						sessionType: "seed",
+						status: "VERIFIED" as const,
+						verifiedAt: kycVerifiedAt,
+					}))
+				)
 				console.log(`✅ Set KYC status to VERIFIED for ${testUserIds.length} test account(s)`)
 			}
 		}
@@ -150,7 +164,9 @@ export async function createUsers() {
 	let insertedRandomUsers: Array<{
 		id: string
 		email: string | null
-		name: string | null
+		firstName: string | null
+		middleName: string | null
+		lastName: string | null
 		role: "ENP" | "PRINCIPAL" | "ENA" | "ADMIN"
 	}> = []
 	const randomUserCount = SEED_CONFIG.userCount - SEED_CONFIG.testAccounts.length

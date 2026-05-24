@@ -248,8 +248,7 @@ export const legalRegistrationRouter = createTRPCRouter({
 				columns: { enpLmsCourseCompletedAt: true, role: true },
 			})
 			const existing = row?.enpLmsCourseCompletedAt
-			const chosen =
-				existing && existing.getTime() >= nextAt.getTime() ? existing : nextAt
+			const chosen = existing && existing.getTime() >= nextAt.getTime() ? existing : nextAt
 
 			const promoteToEnp = row?.role === "PRINCIPAL"
 
@@ -297,13 +296,15 @@ export const legalRegistrationRouter = createTRPCRouter({
 			if (row?.role !== "ENP") {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "Complete step 2 of the ENP course (certificate) first. That step upgrades your account to ENP.",
+					message:
+						"Complete step 2 of the ENP course (certificate) first. That step upgrades your account to ENP.",
 				})
 			}
 			if (!row.enpLmsCourseCompletedAt) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "Finish the initial LMS step and download your certificate before marking all modules complete.",
+					message:
+						"Finish the initial LMS step and download your certificate before marking all modules complete.",
 				})
 			}
 			const existingFull = row.enpLmsAllModulesCompletedAt

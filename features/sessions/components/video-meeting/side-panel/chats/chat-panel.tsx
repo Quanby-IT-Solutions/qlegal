@@ -87,7 +87,12 @@ export function ChatPanel({
 										placeholder="Type a message"
 										className="min-h-9 py-2 text-sm"
 									/>
-									<Button type="submit" size="icon" disabled={!draft.trim()} className="size-9 shrink-0">
+									<Button
+										type="submit"
+										size="icon"
+										disabled={!draft.trim()}
+										className="size-9 shrink-0"
+									>
 										<Send className="size-4" />
 									</Button>
 								</div>

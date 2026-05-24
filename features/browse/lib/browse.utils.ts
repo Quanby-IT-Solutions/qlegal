@@ -1,6 +1,7 @@
 import { eq, gte, ilike, or, sql, type InferSelectModel } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { users } from "@/services/drizzle/schema/auth"
 import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
 import { getAvatarPublicUrl } from "@/services/supabase/presigned-url"

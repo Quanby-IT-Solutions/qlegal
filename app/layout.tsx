@@ -3,9 +3,9 @@ import { Inter } from "next/font/google"
 
 import { CookieConsent } from "@/core/components/blocks/cookie-consent"
 import { Toaster } from "@/core/components/ui/sonner"
+import { AuthSessionProvider } from "@/core/context/auth-session-provider"
 import { ThemeProvider } from "@/core/context/theme-provider"
 
-import { AuthSessionProvider } from "@/core/context/auth-session-provider"
 import { auth } from "@/services/next-auth"
 import { TRPCProvider } from "@/services/trpc/client"
 

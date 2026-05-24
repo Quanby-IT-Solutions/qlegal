@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-
 import { z } from "zod/v4"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { appointmentParticipants } from "@/services/drizzle/schema/appointment-participants"
 import { appointments } from "@/services/drizzle/schema/appointments"
 import { users } from "@/services/drizzle/schema/auth"

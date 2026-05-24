@@ -1,9 +1,10 @@
-import { env } from "@/env"
 import type { GetSubOrgCredsForEmail } from "@/services/doconchain/auth/generate-token"
 import {
 	getDoconchainApiToken,
 	invalidateDoconchainToken,
 } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type DoconchainCreateProjectResponse = {
 	message?: string
@@ -64,7 +65,9 @@ async function postCreateProject(params: {
 		throw err
 	}
 
-	return (text ? (JSON.parse(text) as DoconchainCreateProjectResponse) : {}) as DoconchainCreateProjectResponse
+	return (
+		text ? (JSON.parse(text) as DoconchainCreateProjectResponse) : {}
+	) as DoconchainCreateProjectResponse
 }
 
 export async function createDoconchainProject(input: {
@@ -108,7 +111,8 @@ export async function createDoconchainProject(input: {
 		}
 		return { uuid, url: raw.data?.url ?? null, raw }
 	} catch (error) {
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
 		// If token is expired/invalid, invalidate and retry once with a fresh token.
 		if (status === 401) {
 			invalidateDoconchainToken(email)
@@ -122,4 +126,3 @@ export async function createDoconchainProject(input: {
 		throw error
 	}
 }
-

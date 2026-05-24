@@ -4,7 +4,6 @@
  * @deprecated Full onboarding stepper is no longer routed at `/onboarding` (that path redirects to Profile).
  * Kept for reference or future reuse; KYC Web SDK entry is `useStartKycVerification` on Profile / restriction dialogs.
  */
-
 import { type Route } from "next"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"

@@ -133,7 +133,9 @@ function DocumentCard({
 					{truncateFileName(doc.documentName, 25)}
 				</CardTitle>
 				{doc.documentDescription && (
-					<CardDescription className="line-clamp-2 text-xs">{doc.documentDescription}</CardDescription>
+					<CardDescription className="line-clamp-2 text-xs">
+						{doc.documentDescription}
+					</CardDescription>
 				)}
 			</CardHeader>
 			<CardContent className="flex flex-1 flex-col gap-3 pt-0">
@@ -151,9 +153,7 @@ function DocumentCard({
 					</span>
 				</div>
 				<div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-					{doc.certificateNumber && (
-						<span className="font-mono">{doc.certificateNumber}</span>
-					)}
+					{doc.certificateNumber && <span className="font-mono">{doc.certificateNumber}</span>}
 				</div>
 				<div className="mt-auto flex flex-wrap gap-2 pt-2">
 					{hasSignedDocument && (
@@ -215,7 +215,7 @@ function ExpandedDocumentDetails({
 		<div className="space-y-4">
 			{/* Signatories section – same as ENP notarial registry */}
 			<div>
-				<h4 className="mb-2 font-semibold text-sm">Signatories</h4>
+				<h4 className="mb-2 text-sm font-semibold">Signatories</h4>
 				{isSignersLoading ? (
 					<div className="flex items-center gap-2 py-2">
 						<Loader2 className="size-4 animate-spin" />
@@ -228,10 +228,7 @@ function ExpandedDocumentDetails({
 				) : (
 					<div className="space-y-2">
 						{signers.map(signer => {
-							const fullName = [signer.firstName, signer.lastName]
-								.filter(Boolean)
-								.join(" ")
-								.trim()
+							const fullName = [signer.firstName, signer.lastName].filter(Boolean).join(" ").trim()
 							const displayName = fullName || signer.email || "Unknown"
 							const signed = isSignerSigned(signer)
 							const signerRoleUpper = ((signer as { signerRole?: string }).signerRole ?? "")
@@ -252,44 +249,30 @@ function ExpandedDocumentDetails({
 										<p className="font-medium">
 											{displayName}
 											{isNotary && (
-												<Badge
-													variant="outline"
-													className="ml-2 text-[10px] font-normal"
-												>
+												<Badge variant="outline" className="ml-2 text-[10px] font-normal">
 													Notary
 												</Badge>
 											)}
 											{isPrincipal && (
-												<Badge
-													variant="outline"
-													className="ml-2 text-[10px] font-normal"
-												>
+												<Badge variant="outline" className="ml-2 text-[10px] font-normal">
 													Principal
 												</Badge>
 											)}
 											{isWitness && !isPrincipal && !isNotary && (
-												<Badge
-													variant="outline"
-													className="ml-2 text-[10px] font-normal"
-												>
+												<Badge variant="outline" className="ml-2 text-[10px] font-normal">
 													Witness
 												</Badge>
 											)}
 										</p>
 										<p className="text-muted-foreground truncate text-xs">
 											{signer.email}
-											{signer.signedAt &&
-												!Number.isNaN(new Date(signer.signedAt).getTime()) && (
-													<>
-														{" "}
-														·{" "}
-														<span className="font-medium">Signed:</span>{" "}
-														{format(
-															new Date(signer.signedAt),
-															"MMM dd, yyyy · hh:mm a"
-														)}
-													</>
-												)}
+											{signer.signedAt && !Number.isNaN(new Date(signer.signedAt).getTime()) && (
+												<>
+													{" "}
+													· <span className="font-medium">Signed:</span>{" "}
+													{format(new Date(signer.signedAt), "MMM dd, yyyy · hh:mm a")}
+												</>
+											)}
 										</p>
 										{(() => {
 											const s = signer as {
@@ -302,21 +285,15 @@ function ExpandedDocumentDetails({
 												s.fullAddress ??
 												[s.homeStreet, s.barangay, s.cityProvince].filter(Boolean).join(", ")
 											return addr ? (
-												<p className="text-muted-foreground mt-0.5 truncate text-[11px]">
-													{addr}
-												</p>
+												<p className="text-muted-foreground mt-0.5 truncate text-[11px]">{addr}</p>
 											) : null
 										})()}
 									</div>
 									<Badge
 										variant={signed ? "default" : "secondary"}
-										className={
-											signed
-												? "bg-green-600 text-xs dark:bg-green-700"
-												: "text-xs"
-										}
+										className={signed ? "bg-green-600 text-xs dark:bg-green-700" : "text-xs"}
 									>
-										{signed ? "Signed" : signer.status ?? "Pending"}
+										{signed ? "Signed" : (signer.status ?? "Pending")}
 									</Badge>
 								</div>
 							)
@@ -391,8 +368,13 @@ export default function DocumentsPage() {
 		})
 	}, [])
 
-	const { data: documents, isPending, error, refetch, isFetching } =
-		trpc.documents.getMyNotarizedDocuments.useQuery()
+	const {
+		data: documents,
+		isPending,
+		error,
+		refetch,
+		isFetching,
+	} = trpc.documents.getMyNotarizedDocuments.useQuery()
 
 	const viewingDocument = documents?.find(d => d.id === viewingActId)
 
@@ -417,28 +399,27 @@ export default function DocumentsPage() {
 			filtered = filtered.filter(doc => doc.workflow === workflowFilter)
 		}
 
-		return [...filtered].sort((a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime())
+		return [...filtered].sort(
+			(a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
+		)
 	}, [documents, searchTerm, actTypeFilter, workflowFilter])
 
 	const handleViewDocument = useCallback((actId: string, _documentName?: string) => {
 		setViewingActId(actId)
 	}, [])
 
-	const handleDownloadDocument = useCallback(
-		async (actId: string, _documentName?: string) => {
-			setDownloadingActId(actId)
-			try {
-				toast.error(
-					"Signed document download is temporarily unavailable while we rebuild the signing integration."
-				)
-			} catch (err) {
-				toast.error(err instanceof Error ? err.message : "Failed to download document")
-			} finally {
-				setDownloadingActId(null)
-			}
-		},
-		[]
-	)
+	const handleDownloadDocument = useCallback(async (actId: string, _documentName?: string) => {
+		setDownloadingActId(actId)
+		try {
+			toast.error(
+				"Signed document download is temporarily unavailable while we rebuild the signing integration."
+			)
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Failed to download document")
+		} finally {
+			setDownloadingActId(null)
+		}
+	}, [])
 
 	const handleRefresh = useCallback(async () => {
 		try {
@@ -501,13 +482,24 @@ export default function DocumentsPage() {
 
 						<Card className="mb-8">
 							<CardContent className="pt-6">
-								<Tabs value={actTypeFilter} onValueChange={v => setActTypeFilter(v as ActTypeFilter)}>
+								<Tabs
+									value={actTypeFilter}
+									onValueChange={v => setActTypeFilter(v as ActTypeFilter)}
+								>
 									<div className="mb-4">
 										<TabsList className="bg-muted/50 flex h-auto flex-wrap gap-1 p-1">
-											<TabsTrigger value="ALL" className="text-sm">All</TabsTrigger>
-											<TabsTrigger value="ACKNOWLEDGMENT" className="text-sm">Acknowledgment</TabsTrigger>
-											<TabsTrigger value="AFFIRMATION" className="text-sm">Affirmation</TabsTrigger>
-											<TabsTrigger value="JURAT" className="text-sm">Jurat</TabsTrigger>
+											<TabsTrigger value="ALL" className="text-sm">
+												All
+											</TabsTrigger>
+											<TabsTrigger value="ACKNOWLEDGMENT" className="text-sm">
+												Acknowledgment
+											</TabsTrigger>
+											<TabsTrigger value="AFFIRMATION" className="text-sm">
+												Affirmation
+											</TabsTrigger>
+											<TabsTrigger value="JURAT" className="text-sm">
+												Jurat
+											</TabsTrigger>
 											<TabsTrigger value="SIGNATURE_WITNESSING" className="text-sm">
 												Signature Witnessing
 											</TabsTrigger>
@@ -614,22 +606,22 @@ export default function DocumentsPage() {
 													const total = filteredDocuments.length
 													const entryIndex = total - index
 													return (
-													<motion.div
-														key={doc.id}
-														variants={{
-															visible: { opacity: 1, y: 0 },
-															hidden: { opacity: 0, y: 12 },
-														}}
-														transition={{ duration: 0.25 }}
-													>
-														<DocumentCard
-															doc={doc}
-															entryIndex={entryIndex}
-															onViewDocument={handleViewDocument}
-															onDownloadDocument={handleDownloadDocument}
-															isDownloading={downloadingActId === doc.id}
-														/>
-													</motion.div>
+														<motion.div
+															key={doc.id}
+															variants={{
+																visible: { opacity: 1, y: 0 },
+																hidden: { opacity: 0, y: 12 },
+															}}
+															transition={{ duration: 0.25 }}
+														>
+															<DocumentCard
+																doc={doc}
+																entryIndex={entryIndex}
+																onViewDocument={handleViewDocument}
+																onDownloadDocument={handleDownloadDocument}
+																isDownloading={downloadingActId === doc.id}
+															/>
+														</motion.div>
 													)
 												})}
 											</motion.div>
@@ -642,121 +634,137 @@ export default function DocumentsPage() {
 												transition={{ duration: 0.2 }}
 												className="-mx-4 overflow-x-auto sm:mx-0"
 											>
-										<div className="inline-block min-w-full align-middle">
-											<Table className="w-full">
-												<TableHeader>
-													<TableRow>
-														<TableHead className="w-10 sm:w-12">#</TableHead>
-														<TableHead className="min-w-[100px] sm:min-w-[110px]">
-															Date & Time
-														</TableHead>
-														<TableHead className="min-w-[120px] sm:min-w-[140px]">Document</TableHead>
-														<TableHead className="min-w-[120px] sm:min-w-[140px]">Notary</TableHead>
-														<TableHead className="w-24 sm:w-28">Actions</TableHead>
-													</TableRow>
-												</TableHeader>
-												<TableBody>
-													{filteredDocuments.map((doc, index) => {
-														const isExpanded = expandedDocIds.has(doc.id)
-														const total = filteredDocuments.length
-														const entryIndex = total - index
-														return (
-															<Fragment key={doc.id}>
-																<TableRow className={isExpanded ? "border-b-0" : undefined}>
-																	<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
-																		{entryIndex}
-																	</TableCell>
-																	<TableCell className="align-top whitespace-nowrap text-xs sm:text-sm">
-																		{format(new Date(doc.executedAt), "MMM dd, yyyy · hh:mm a")}
-																	</TableCell>
-																	<TableCell className="max-w-[140px] min-w-0 align-top sm:max-w-[200px]">
-																		<p className="truncate text-xs font-medium sm:text-sm">
-																			{truncateFileName(doc.documentName, 24)}
-																		</p>
-																	</TableCell>
-																	<TableCell className="min-w-0 align-top">
-																		<p className="truncate text-xs font-medium sm:text-sm">{doc.enpName}</p>
-																		{doc.enpRollNumber && (
-																			<p className="text-muted-foreground truncate text-xs">
-																				Roll #{doc.enpRollNumber}
-																			</p>
-																		)}
-																	</TableCell>
-																	<TableCell className="align-top">
-																		<div className="flex items-center justify-end gap-0.5 sm:gap-1">
-																			{doc.docoChainProjectUuid && (
-																				<>
+												<div className="inline-block min-w-full align-middle">
+													<Table className="w-full">
+														<TableHeader>
+															<TableRow>
+																<TableHead className="w-10 sm:w-12">#</TableHead>
+																<TableHead className="min-w-[100px] sm:min-w-[110px]">
+																	Date & Time
+																</TableHead>
+																<TableHead className="min-w-[120px] sm:min-w-[140px]">
+																	Document
+																</TableHead>
+																<TableHead className="min-w-[120px] sm:min-w-[140px]">
+																	Notary
+																</TableHead>
+																<TableHead className="w-24 sm:w-28">Actions</TableHead>
+															</TableRow>
+														</TableHeader>
+														<TableBody>
+															{filteredDocuments.map((doc, index) => {
+																const isExpanded = expandedDocIds.has(doc.id)
+																const total = filteredDocuments.length
+																const entryIndex = total - index
+																return (
+																	<Fragment key={doc.id}>
+																		<TableRow className={isExpanded ? "border-b-0" : undefined}>
+																			<TableCell className="align-top font-mono text-xs font-medium sm:text-sm">
+																				{entryIndex}
+																			</TableCell>
+																			<TableCell className="align-top text-xs whitespace-nowrap sm:text-sm">
+																				{format(new Date(doc.executedAt), "MMM dd, yyyy · hh:mm a")}
+																			</TableCell>
+																			<TableCell className="max-w-[140px] min-w-0 align-top sm:max-w-[200px]">
+																				<p className="truncate text-xs font-medium sm:text-sm">
+																					{truncateFileName(doc.documentName, 24)}
+																				</p>
+																			</TableCell>
+																			<TableCell className="min-w-0 align-top">
+																				<p className="truncate text-xs font-medium sm:text-sm">
+																					{doc.enpName}
+																				</p>
+																				{doc.enpRollNumber && (
+																					<p className="text-muted-foreground truncate text-xs">
+																						Roll #{doc.enpRollNumber}
+																					</p>
+																				)}
+																			</TableCell>
+																			<TableCell className="align-top">
+																				<div className="flex items-center justify-end gap-0.5 sm:gap-1">
+																					{doc.docoChainProjectUuid && (
+																						<>
+																							<Button
+																								variant="ghost"
+																								size="sm"
+																								className="size-7 p-0 sm:size-8"
+																								onClick={() => handleViewDocument(doc.id)}
+																								title="View Document"
+																							>
+																								<Eye className="size-3.5 sm:size-4" />
+																							</Button>
+																							<Button
+																								variant="ghost"
+																								size="sm"
+																								className="size-7 p-0 sm:size-8"
+																								disabled={downloadingActId === doc.id}
+																								onClick={() =>
+																									handleDownloadDocument(doc.id, doc.documentName)
+																								}
+																								title={
+																									downloadingActId === doc.id
+																										? "Downloading..."
+																										: "Download"
+																								}
+																							>
+																								{downloadingActId === doc.id ? (
+																									<Loader2 className="size-3.5 animate-spin sm:size-4" />
+																								) : (
+																									<Download className="size-3.5 sm:size-4" />
+																								)}
+																							</Button>
+																						</>
+																					)}
 																					<Button
 																						variant="ghost"
 																						size="sm"
 																						className="size-7 p-0 sm:size-8"
-																						onClick={() => handleViewDocument(doc.id)}
-																						title="View Document"
+																						onClick={() => toggleExpanded(doc.id)}
+																						title={isExpanded ? "Collapse" : "Expand details"}
+																						aria-expanded={isExpanded}
 																					>
-																						<Eye className="size-3.5 sm:size-4" />
-																					</Button>
-																					<Button
-																						variant="ghost"
-																						size="sm"
-																						className="size-7 p-0 sm:size-8"
-																						disabled={downloadingActId === doc.id}
-																						onClick={() => handleDownloadDocument(doc.id, doc.documentName)}
-																						title={
-																							downloadingActId === doc.id ? "Downloading..." : "Download"
-																						}
-																					>
-																						{downloadingActId === doc.id ? (
-																							<Loader2 className="size-3.5 animate-spin sm:size-4" />
+																						{isExpanded ? (
+																							<ChevronDown className="size-4" />
 																						) : (
-																							<Download className="size-3.5 sm:size-4" />
+																							<ChevronRight className="size-4" />
 																						)}
 																					</Button>
-																				</>
-																			)}
-																			<Button
-																				variant="ghost"
-																				size="sm"
-																				className="size-7 p-0 sm:size-8"
-																				onClick={() => toggleExpanded(doc.id)}
-																				title={isExpanded ? "Collapse" : "Expand details"}
-																				aria-expanded={isExpanded}
-																			>
-																				{isExpanded ? (
-																					<ChevronDown className="size-4" />
-																				) : (
-																					<ChevronRight className="size-4" />
-																				)}
-																			</Button>
-																		</div>
-																	</TableCell>
-																</TableRow>
-																<TableRow className="bg-muted/30 hover:bg-muted/30" aria-hidden={!isExpanded}>
-																	<TableCell colSpan={5} className="p-0 align-top">
-																		<motion.div
-																			animate={{ height: isExpanded ? "auto" : 0, opacity: isExpanded ? 1 : 0 }}
-																			transition={{
-																				type: "spring",
-																				stiffness: 300,
-																				damping: 30,
-																				mass: 0.8,
-																			}}
-																			className="overflow-hidden"
+																				</div>
+																			</TableCell>
+																		</TableRow>
+																		<TableRow
+																			className="bg-muted/30 hover:bg-muted/30"
+																			aria-hidden={!isExpanded}
 																		>
-																			<div className="px-4 py-3 sm:px-6">
-																				<ExpandedDocumentDetails
-																					doc={doc}
-																					isExpanded={isExpanded}
-																				/>
-																			</div>
-																		</motion.div>
-																	</TableCell>
-																</TableRow>
-															</Fragment>
-														)
-													})}
-												</TableBody>
-											</Table>
-										</div>
+																			<TableCell colSpan={5} className="p-0 align-top">
+																				<motion.div
+																					animate={{
+																						height: isExpanded ? "auto" : 0,
+																						opacity: isExpanded ? 1 : 0,
+																					}}
+																					transition={{
+																						type: "spring",
+																						stiffness: 300,
+																						damping: 30,
+																						mass: 0.8,
+																					}}
+																					className="overflow-hidden"
+																				>
+																					<div className="px-4 py-3 sm:px-6">
+																						<ExpandedDocumentDetails
+																							doc={doc}
+																							isExpanded={isExpanded}
+																						/>
+																					</div>
+																				</motion.div>
+																			</TableCell>
+																		</TableRow>
+																	</Fragment>
+																)
+															})}
+														</TableBody>
+													</Table>
+												</div>
 											</motion.div>
 										)}
 									</AnimatePresence>
@@ -780,7 +788,8 @@ export default function DocumentsPage() {
 							<div className="text-center">
 								<FileText className="text-muted-foreground mx-auto mb-4 size-12" />
 								<p className="text-muted-foreground">
-									Document viewing is temporarily unavailable while we rebuild the signing integration.
+									Document viewing is temporarily unavailable while we rebuild the signing
+									integration.
 								</p>
 							</div>
 						</div>

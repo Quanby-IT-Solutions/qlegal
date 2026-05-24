@@ -34,8 +34,7 @@ export function KycMobileFlow({
 }: KycMobileFlowProps) {
 	const shouldDisableStartButton = [isPending, showNeedsReviewBanner, isStatusLoading].some(Boolean)
 
-	const showCheckingPrimary =
-		!showRejectedBanner && (isPending || isStatusLoading)
+	const showCheckingPrimary = !showRejectedBanner && (isPending || isStatusLoading)
 	const showManualReviewPrimary =
 		showNeedsReviewBanner && !showRejectedBanner && !showCheckingPrimary
 

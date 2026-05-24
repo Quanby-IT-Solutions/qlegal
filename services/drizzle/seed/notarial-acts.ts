@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker"
 import { eq } from "drizzle-orm"
 
 import { getFullName } from "@/core/lib/utils"
+
 import { db } from "@/services/drizzle/db"
 import { users } from "@/services/drizzle/schema/auth"
 import { documents } from "@/services/drizzle/schema/document"

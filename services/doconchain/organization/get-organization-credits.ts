@@ -1,5 +1,6 @@
-import { env } from "@/env"
 import { getDoconchainApiToken } from "@/services/doconchain/auth/generate-token"
+
+import { env } from "@/env"
 
 type OrgCreditsRow = {
 	id?: number | string
@@ -30,14 +31,22 @@ function asCreditsArray(parsed: OrgCreditsResponse): OrgCreditsRow[] {
 	// DocOnChain docs: GET /organizations/credits returns flat shape with no data array.
 	// Treat top-level total_credits/remaining_credits as a single "main org" row so callers can use it.
 	const obj = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null
-	if (obj && (typeof (obj as OrgCreditsRow).remaining_credits === "number" || typeof (obj as OrgCreditsRow).total_credits === "number")) {
+	if (
+		obj &&
+		(typeof (obj as OrgCreditsRow).remaining_credits === "number" ||
+			typeof (obj as OrgCreditsRow).total_credits === "number")
+	) {
 		return [{ ...(obj as OrgCreditsRow) }]
 	}
 	return []
 }
 
 export async function getDoconchainOrganizationCredits(): Promise<{
-	summary: { totalCredits: number | null; usedCredits: number | null; remainingCredits: number | null }
+	summary: {
+		totalCredits: number | null
+		usedCredits: number | null
+		remainingCredits: number | null
+	}
 	items: OrgCreditsRow[]
 	raw: OrgCreditsResponse | null
 }> {
@@ -80,4 +89,3 @@ export async function getDoconchainOrganizationCredits(): Promise<{
 
 	return { summary, items, raw }
 }
-

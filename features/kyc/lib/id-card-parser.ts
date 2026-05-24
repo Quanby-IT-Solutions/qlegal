@@ -199,7 +199,8 @@ function parseNamePartsFromFullName(value: string): ParsedNameParts {
 		}
 
 		const middleName = trailingParts[trailingParts.length - 1]
-		const firstName = trailingParts.length > 1 ? trailingParts.slice(0, -1).join(" ") : trailingParts[0]
+		const firstName =
+			trailingParts.length > 1 ? trailingParts.slice(0, -1).join(" ") : trailingParts[0]
 		return {
 			firstName,
 			middleName: trailingParts.length > 1 ? middleName : undefined,

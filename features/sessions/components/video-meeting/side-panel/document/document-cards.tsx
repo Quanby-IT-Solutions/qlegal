@@ -8,6 +8,7 @@ import React, {
 	useRef,
 	useState,
 } from "react"
+import { usePubSub } from "@videosdk.live/react-sdk"
 import {
 	CheckCircle2,
 	Clock,
@@ -22,11 +23,9 @@ import {
 	Unlock,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { usePubSub } from "@videosdk.live/react-sdk"
 
 import { Button } from "@/core/components/ui/button"
 import { Card, CardContent } from "@/core/components/ui/card"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/ui/tooltip"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -34,8 +33,10 @@ import {
 } from "@/core/components/ui/dropdown-menu"
 import { Input } from "@/core/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/core/components/ui/sheet"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/components/ui/tooltip"
 import { useIsMobile } from "@/core/hooks/use-mobile"
 import { cn } from "@/core/lib/utils"
+
 import { trpc } from "@/services/trpc/client"
 
 import {
@@ -340,7 +341,7 @@ export const DocumentCards = React.memo(
 			sendMeetingMessageMutation.mutate(
 				{ meetingId, content: text },
 				{
-					onSuccess: (msg) => {
+					onSuccess: msg => {
 						setChatMessages(prev => {
 							const withoutPending = prev.filter(m => !m.id.startsWith("pending-"))
 							withoutPending.push({
@@ -503,12 +504,7 @@ export const DocumentCards = React.memo(
 								<MessageSquare className="text-primary size-5" />
 							)}
 						</div>
-						<span
-							className={cn(
-								"truncate font-semibold",
-								showDocuments ? "text-sm" : "text-base"
-							)}
-						>
+						<span className={cn("truncate font-semibold", showDocuments ? "text-sm" : "text-base")}>
 							{showDocuments ? `Documents (${documents.length})` : "Messages"}
 						</span>
 						{showDocuments && isLocked && (
@@ -652,254 +648,257 @@ export const DocumentCards = React.memo(
 							) : (
 								<div className="space-y-3 overflow-y-auto [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/25 [&::-webkit-scrollbar-track]:bg-transparent">
 									{documents.map((doc, index) => {
-									const isDragged = draggedDocumentId === doc.id
-									const isDragOver = dragOverDocumentId === doc.id
+										const isDragged = draggedDocumentId === doc.id
+										const isDragOver = dragOverDocumentId === doc.id
 
-									const previousDoc = index > 0 ? documents[index - 1] : null
+										const previousDoc = index > 0 ? documents[index - 1] : null
 
-									const previousInternalRequests = Array.isArray(
-										notarizationDocs.find(d => d?.id === previousDoc?.id)?.signatureRequests
-									)
-										? (notarizationDocs.find(d => d?.id === previousDoc?.id)
-												?.signatureRequests as Array<{
-												signerId?: unknown
-												status?: unknown
-											}>)
-										: []
-
-									const previousSignerUserIds = Array.isArray(
-										(previousDoc as { signerUserIds?: unknown })?.signerUserIds
-									)
-										? (previousDoc as { signerUserIds: string[] }).signerUserIds.filter(
-												v => typeof v === "string" && v.trim()
-											)
-										: []
-
-									const prevStatusBySignerId = new Map<string, string>()
-									for (const req of previousInternalRequests) {
-										const id = typeof req?.signerId === "string" ? req.signerId.trim() : ""
-										if (!id) continue
-										prevStatusBySignerId.set(
-											id,
-											typeof req?.status === "string" ? req.status.toUpperCase() : ""
+										const previousInternalRequests = Array.isArray(
+											notarizationDocs.find(d => d?.id === previousDoc?.id)?.signatureRequests
 										)
-									}
+											? (notarizationDocs.find(d => d?.id === previousDoc?.id)
+													?.signatureRequests as Array<{
+													signerId?: unknown
+													status?: unknown
+												}>)
+											: []
 
-									const previousIsInternallySigned =
-										previousSignerUserIds.length > 0 &&
-										previousSignerUserIds.every(id => {
-											const s = prevStatusBySignerId.get(id)
-											return s === "SIGNED" || s === "COMPLETED"
-										})
+										const previousSignerUserIds = Array.isArray(
+											(previousDoc as { signerUserIds?: unknown })?.signerUserIds
+										)
+											? (previousDoc as { signerUserIds: string[] }).signerUserIds.filter(
+													v => typeof v === "string" && v.trim()
+												)
+											: []
 
-									const previousSigningStatus = previousDoc?.docoChainProjectId
-										? documentSigningStatus.get(previousDoc.id)
-										: undefined
+										const prevStatusBySignerId = new Map<string, string>()
+										for (const req of previousInternalRequests) {
+											const id = typeof req?.signerId === "string" ? req.signerId.trim() : ""
+											if (!id) continue
+											prevStatusBySignerId.set(
+												id,
+												typeof req?.status === "string" ? req.status.toUpperCase() : ""
+											)
+										}
 
-									const previousIsExternallySigned =
-										previousSigningStatus?.isFullySigned === true ||
-										((previousSigningStatus?.totalSigners ?? 0) > 0 &&
-											(previousSigningStatus?.signedCount ?? 0) ===
-												(previousSigningStatus?.totalSigners ?? 0) &&
-											(previousSigningStatus?.signedCount ?? 0) > 0)
+										const previousIsInternallySigned =
+											previousSignerUserIds.length > 0 &&
+											previousSignerUserIds.every(id => {
+												const s = prevStatusBySignerId.get(id)
+												return s === "SIGNED" || s === "COMPLETED"
+											})
 
-									const isPreviousDocumentSigned =
-										!previousDoc || previousIsInternallySigned || previousIsExternallySigned
+										const previousSigningStatus = previousDoc?.docoChainProjectId
+											? documentSigningStatus.get(previousDoc.id)
+											: undefined
 
-									const signingStatus = doc.docoChainProjectId
-										? documentSigningStatus.get(doc.id)
-										: undefined
+										const previousIsExternallySigned =
+											previousSigningStatus?.isFullySigned === true ||
+											((previousSigningStatus?.totalSigners ?? 0) > 0 &&
+												(previousSigningStatus?.signedCount ?? 0) ===
+													(previousSigningStatus?.totalSigners ?? 0) &&
+												(previousSigningStatus?.signedCount ?? 0) > 0)
 
-									const isFullySigned =
-										signingStatus?.isFullySigned === true ||
-										((signingStatus?.totalSigners ?? 0) > 0 &&
-											(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
-											(signingStatus?.signedCount ?? 0) > 0) ||
-										false
+										const isPreviousDocumentSigned =
+											!previousDoc || previousIsInternallySigned || previousIsExternallySigned
 
-									const isDownloadingSigned =
-										!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
+										const signingStatus = doc.docoChainProjectId
+											? documentSigningStatus.get(doc.id)
+											: undefined
 
-									const docSignerUserIds = (doc as { signerUserIds?: string[] }).signerUserIds ?? []
+										const isFullySigned =
+											signingStatus?.isFullySigned === true ||
+											((signingStatus?.totalSigners ?? 0) > 0 &&
+												(signingStatus?.signedCount ?? 0) === (signingStatus?.totalSigners ?? 0) &&
+												(signingStatus?.signedCount ?? 0) > 0) ||
+											false
 
-									return (
-										<Card
-											key={doc.id}
-											style={{
-												opacity: isDragged ? 0.5 : 1,
-												transform: isDragged
-													? "scale(0.97)"
-													: isDragOver
-														? "scale(1.02)"
-														: "scale(1)",
-												transition: isDragged
-													? "opacity 0.2s ease-out, transform 0.2s ease-out"
-													: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-												zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
-											}}
-											className={cn(
-												"relative border-2 shadow-sm transition-shadow",
-												isDragged
-													? "cursor-grabbing shadow-xl"
-													: "hover:border-primary/40 hover:shadow-md",
-												isDragOver && !isDragged && "border-primary bg-primary/5 shadow-lg"
-											)}
-											onDragEnter={e => handleDragEnter(e, doc.id)}
-											onDragLeave={handleDragLeave}
-											onDragOver={e => handleDragOver(e, doc.id)}
-											onDrop={e => handleDrop(e, doc.id)}
-										>
-											{doc.docoChainProjectId && (
-												<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-													{signingStatus ? (
-														isFullySigned ? (
-															<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/30">
-																<CheckCircle2 className="size-2.5 text-green-600 dark:text-green-400" />
-																<span className="text-[9px] font-semibold text-green-700 dark:text-green-400">
-																	Signed
-																</span>
-															</div>
-														) : (signingStatus.signedCount ?? 0) > 0 ? (
-															<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-1.5 py-0.5 dark:bg-yellow-900/30">
-																<Clock className="size-2.5 text-yellow-600 dark:text-yellow-400" />
-																<span className="text-[9px] font-semibold text-yellow-700 dark:text-yellow-400">
-																	{signingStatus.signedCount}/{signingStatus.totalSigners}
-																</span>
-															</div>
-														) : (
-															<div className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
-																<Clock className="size-2.5 text-gray-500 dark:text-gray-400" />
-																<span className="text-[9px] font-semibold text-gray-600 dark:text-gray-400">
-																	Pending
-																</span>
-															</div>
-														)
-													) : null}
+										const isDownloadingSigned =
+											!!doc.docoChainProjectId && downloadingProjectUuid === doc.docoChainProjectId
 
-													<DropdownMenu>
-														<DropdownMenuTrigger asChild>
-															<Button
-																variant="ghost"
-																size="icon"
-																className="h-6 w-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
-																title="More actions"
-															>
-																<MoreVertical className="size-3" />
-															</Button>
-														</DropdownMenuTrigger>
-														<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
-															<NotarizedDocumentMenuItem
-																projectUuid={doc.docoChainProjectId}
-																isOpening={isDownloadingSigned}
-																onOpen={onViewNotarizedDocument}
-															/>
-														</DropdownMenuContent>
-													</DropdownMenu>
-												</div>
-											)}
+										const docSignerUserIds =
+											(doc as { signerUserIds?: string[] }).signerUserIds ?? []
 
-											<CardContent className="p-3">
-												<div className="mb-3 flex items-start gap-2">
-													<div
-														className={cn(
-															"mt-1 shrink-0 transition-colors",
-															"text-muted-foreground hover:text-primary cursor-move"
-														)}
-														draggable
-														onDragStart={e => handleDragStart(e, doc.id)}
-														onDragEnd={handleDragEnd}
-														title={reorderTitle}
-													>
-														<GripVertical className="size-4" />
-													</div>
-
-													<div className="bg-primary/10 mt-0.5 shrink-0 rounded-md p-2">
-														<FileText className="text-primary size-4" />
-													</div>
-
-													<div className="min-w-0 flex-1">
-														<div className="flex items-center gap-2">
-															<p
-																className="truncate text-sm leading-tight font-semibold"
-																title={doc.name}
-															>
-																{doc.name}
-															</p>
-															{(() => {
-																const fees = doc.fees
-																const showFees =
-																	fees !== null &&
-																	fees !== undefined &&
-																	typeof fees === "number" &&
-																	!Number.isNaN(fees)
-																return showFees ? (
-																	<span className="text-muted-foreground shrink-0 text-xs font-semibold">
-																		PHP {fees.toFixed(2)}
+										return (
+											<Card
+												key={doc.id}
+												style={{
+													opacity: isDragged ? 0.5 : 1,
+													transform: isDragged
+														? "scale(0.97)"
+														: isDragOver
+															? "scale(1.02)"
+															: "scale(1)",
+													transition: isDragged
+														? "opacity 0.2s ease-out, transform 0.2s ease-out"
+														: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+													zIndex: isDragged ? 50 : isDragOver ? 10 : 1,
+												}}
+												className={cn(
+													"relative border-2 shadow-sm transition-shadow",
+													isDragged
+														? "cursor-grabbing shadow-xl"
+														: "hover:border-primary/40 hover:shadow-md",
+													isDragOver && !isDragged && "border-primary bg-primary/5 shadow-lg"
+												)}
+												onDragEnter={e => handleDragEnter(e, doc.id)}
+												onDragLeave={handleDragLeave}
+												onDragOver={e => handleDragOver(e, doc.id)}
+												onDrop={e => handleDrop(e, doc.id)}
+											>
+												{doc.docoChainProjectId && (
+													<div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+														{signingStatus ? (
+															isFullySigned ? (
+																<div className="flex items-center gap-1 rounded-full bg-green-100 px-1.5 py-0.5 dark:bg-green-900/30">
+																	<CheckCircle2 className="size-2.5 text-green-600 dark:text-green-400" />
+																	<span className="text-[9px] font-semibold text-green-700 dark:text-green-400">
+																		Signed
 																	</span>
-																) : null
-															})()}
-														</div>
-														<p className="text-muted-foreground mt-0.5 text-xs">
-															{(doc.size / 1024).toFixed(1)} KB · PDF
-														</p>
-														{doc.notarizationType && (
-															<p className="text-muted-foreground mt-0.5 text-xs font-medium">
-																{(() => {
-																	switch (doc.notarizationType) {
-																		case "ACKNOWLEDGMENT":
-																			return "Acknowledgment"
-																		case "AFFIRMATION":
-																			return "Affirmation"
-																		case "JURAT":
-																			return "Jurat"
-																		case "SIGNATURE_WITNESSING":
-																			return "Signature Witnessing"
-																		default:
-																			return doc.notarizationType
-																	}
-																})()}
-															</p>
-														)}
-													</div>
-												</div>
+																</div>
+															) : (signingStatus.signedCount ?? 0) > 0 ? (
+																<div className="flex items-center gap-1 rounded-full bg-yellow-100 px-1.5 py-0.5 dark:bg-yellow-900/30">
+																	<Clock className="size-2.5 text-yellow-600 dark:text-yellow-400" />
+																	<span className="text-[9px] font-semibold text-yellow-700 dark:text-yellow-400">
+																		{signingStatus.signedCount}/{signingStatus.totalSigners}
+																	</span>
+																</div>
+															) : (
+																<div className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+																	<Clock className="size-2.5 text-gray-500 dark:text-gray-400" />
+																	<span className="text-[9px] font-semibold text-gray-600 dark:text-gray-400">
+																		Pending
+																	</span>
+																</div>
+															)
+														) : null}
 
-												<DocumentActions
-													document={doc}
-													onSignClick={onSignClick}
-													onSignersChange={onSignersChange}
-													isSigningPending={signingDocumentId === doc.id}
-													isPlottingAction={signingDocumentId === doc.id ? isPlottingAction : false}
-													isLocked={isLocked}
-													isPreviousDocumentSigned={isPreviousDocumentSigned}
-													documentIndex={index}
-													signers={documentSigningStatus.get(doc.id)?.signers}
-													signatureRequests={
-														(notarizationDocs.find(d => d?.id === doc.id)?.signatureRequests ??
-															[]) as Array<{
-															id: string
-															signerId: string
-															status: string
-															signedAt: string | Date | null
-														}>
-													}
-													participants={meetingDetails?.participants ?? []}
-													signerUserIds={docSignerUserIds}
-													signerRoles={
-														(doc as { signerRoles?: Record<string, "principal" | "witness"> })
-															.signerRoles
-													}
-													meetingId={meetingId}
-													onCreateProject={onCreateProject}
-													isCreatingProject={isCreatingProject}
-													docoChainTokenReady={docoChainTokenReady}
-													docoChainTokenLoading={docoChainTokenLoading}
-													onPreGeneratedLink={onPreGeneratedLink}
-													plotLinkReady={!!preGeneratedPlotLinks.get(doc.id)?.link}
-													userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
-												/>
-											</CardContent>
-										</Card>
-									)
+														<DropdownMenu>
+															<DropdownMenuTrigger asChild>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	className="h-6 w-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+																	title="More actions"
+																>
+																	<MoreVertical className="size-3" />
+																</Button>
+															</DropdownMenuTrigger>
+															<DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
+																<NotarizedDocumentMenuItem
+																	projectUuid={doc.docoChainProjectId}
+																	isOpening={isDownloadingSigned}
+																	onOpen={onViewNotarizedDocument}
+																/>
+															</DropdownMenuContent>
+														</DropdownMenu>
+													</div>
+												)}
+
+												<CardContent className="p-3">
+													<div className="mb-3 flex items-start gap-2">
+														<div
+															className={cn(
+																"mt-1 shrink-0 transition-colors",
+																"text-muted-foreground hover:text-primary cursor-move"
+															)}
+															draggable
+															onDragStart={e => handleDragStart(e, doc.id)}
+															onDragEnd={handleDragEnd}
+															title={reorderTitle}
+														>
+															<GripVertical className="size-4" />
+														</div>
+
+														<div className="bg-primary/10 mt-0.5 shrink-0 rounded-md p-2">
+															<FileText className="text-primary size-4" />
+														</div>
+
+														<div className="min-w-0 flex-1">
+															<div className="flex items-center gap-2">
+																<p
+																	className="truncate text-sm leading-tight font-semibold"
+																	title={doc.name}
+																>
+																	{doc.name}
+																</p>
+																{(() => {
+																	const fees = doc.fees
+																	const showFees =
+																		fees !== null &&
+																		fees !== undefined &&
+																		typeof fees === "number" &&
+																		!Number.isNaN(fees)
+																	return showFees ? (
+																		<span className="text-muted-foreground shrink-0 text-xs font-semibold">
+																			PHP {fees.toFixed(2)}
+																		</span>
+																	) : null
+																})()}
+															</div>
+															<p className="text-muted-foreground mt-0.5 text-xs">
+																{(doc.size / 1024).toFixed(1)} KB · PDF
+															</p>
+															{doc.notarizationType && (
+																<p className="text-muted-foreground mt-0.5 text-xs font-medium">
+																	{(() => {
+																		switch (doc.notarizationType) {
+																			case "ACKNOWLEDGMENT":
+																				return "Acknowledgment"
+																			case "AFFIRMATION":
+																				return "Affirmation"
+																			case "JURAT":
+																				return "Jurat"
+																			case "SIGNATURE_WITNESSING":
+																				return "Signature Witnessing"
+																			default:
+																				return doc.notarizationType
+																		}
+																	})()}
+																</p>
+															)}
+														</div>
+													</div>
+
+													<DocumentActions
+														document={doc}
+														onSignClick={onSignClick}
+														onSignersChange={onSignersChange}
+														isSigningPending={signingDocumentId === doc.id}
+														isPlottingAction={
+															signingDocumentId === doc.id ? isPlottingAction : false
+														}
+														isLocked={isLocked}
+														isPreviousDocumentSigned={isPreviousDocumentSigned}
+														documentIndex={index}
+														signers={documentSigningStatus.get(doc.id)?.signers}
+														signatureRequests={
+															(notarizationDocs.find(d => d?.id === doc.id)?.signatureRequests ??
+																[]) as Array<{
+																id: string
+																signerId: string
+																status: string
+																signedAt: string | Date | null
+															}>
+														}
+														participants={meetingDetails?.participants ?? []}
+														signerUserIds={docSignerUserIds}
+														signerRoles={
+															(doc as { signerRoles?: Record<string, "principal" | "witness"> })
+																.signerRoles
+														}
+														meetingId={meetingId}
+														onCreateProject={onCreateProject}
+														isCreatingProject={isCreatingProject}
+														docoChainTokenReady={docoChainTokenReady}
+														docoChainTokenLoading={docoChainTokenLoading}
+														onPreGeneratedLink={onPreGeneratedLink}
+														plotLinkReady={!!preGeneratedPlotLinks.get(doc.id)?.link}
+														userConfirmedPlottedDocumentIds={userConfirmedPlottedDocumentIds}
+													/>
+												</CardContent>
+											</Card>
+										)
 									})}
 								</div>
 							)}
@@ -925,10 +924,7 @@ export const DocumentCards = React.memo(
 								chatMessages.map(message => (
 									<div
 										key={message.id}
-										className={cn(
-											"flex text-sm",
-											message.isSelf ? "justify-end" : "justify-start"
-										)}
+										className={cn("flex text-sm", message.isSelf ? "justify-end" : "justify-start")}
 									>
 										<div
 											className={cn(
@@ -941,13 +937,13 @@ export const DocumentCards = React.memo(
 											<p className="mb-0.5 text-xs font-semibold opacity-90">
 												{message.isSelf ? "You" : message.senderName}
 											</p>
-											<p className="break-words text-[13px] leading-snug">{message.text}</p>
+											<p className="text-[13px] leading-snug break-words">{message.text}</p>
 										</div>
 									</div>
 								))
 							)}
 						</div>
-						<div className="flex items-center gap-2 border-t border-border px-3 py-2.5">
+						<div className="border-border flex items-center gap-2 border-t px-3 py-2.5">
 							<Input
 								placeholder="Type a message"
 								value={chatInput}

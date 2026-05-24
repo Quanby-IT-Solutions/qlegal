@@ -6,7 +6,6 @@ import { LoaderIcon } from "lucide-react"
 import { useForm, type SubmitHandler } from "react-hook-form"
 
 import { Button } from "@/core/components/ui/button"
-import { Separator } from "@/core/components/ui/separator"
 import {
 	Form,
 	FormControl,
@@ -16,6 +15,7 @@ import {
 	FormMessage,
 } from "@/core/components/ui/form"
 import { Input } from "@/core/components/ui/input"
+import { Separator } from "@/core/components/ui/separator"
 
 import { trpc } from "@/services/trpc/client"
 
@@ -126,7 +126,7 @@ export const ForgotPasswordForm = () => {
 					className="items-start"
 					message={
 						activeSubmission === "primary"
-							? primaryData?.message ?? safePrimaryFeedback
+							? (primaryData?.message ?? safePrimaryFeedback)
 							: recoverySuccessMessage
 					}
 				/>

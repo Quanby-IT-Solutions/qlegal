@@ -6,6 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { CopyIcon, EyeIcon, EyeOffIcon, Lock } from "lucide-react"
 import { toast } from "sonner"
 
+import { Badge } from "@/core/components/ui/badge"
 import { Button } from "@/core/components/ui/button"
 import {
 	Card,
@@ -14,7 +15,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/core/components/ui/card"
-import { Badge } from "@/core/components/ui/badge"
 import {
 	Dialog,
 	DialogContent,
@@ -27,7 +27,15 @@ import {
 import { Input } from "@/core/components/ui/input"
 import { Label } from "@/core/components/ui/label"
 import { Separator } from "@/core/components/ui/separator"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/components/ui/table"
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/core/components/ui/table"
+
 import { trpc } from "@/services/trpc/client"
 
 import { AddMemberDialog } from "./add-member-dialog"
@@ -54,10 +62,8 @@ export function SubOrgsDashboard() {
 		<div className="min-h-screen w-full" suppressHydrationWarning>
 			<div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
 				<div>
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-						Sub-Orgs
-					</h1>
-					<p className="text-sm text-gray-600 dark:text-gray-400 sm:text-base">
+					<h1 className="text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white">Sub-Orgs</h1>
+					<p className="text-sm text-gray-600 sm:text-base dark:text-gray-400">
 						Create DocOnChain sub-organizations and add members later
 					</p>
 				</div>
@@ -113,10 +119,12 @@ export function SubOrgsDashboard() {
 					<div className="grid gap-4 md:grid-cols-2">
 						{subOrgs.map(sub => (
 							<Card key={sub.id} className="gap-0 overflow-hidden rounded-xl py-0 shadow-sm">
-								<CardHeader className="space-y-2 border-b bg-muted/30 pb-3 pt-4">
+								<CardHeader className="bg-muted/30 space-y-2 border-b pt-4 pb-3">
 									<div className="space-y-1">
-										<CardTitle className="text-lg font-bold leading-snug">{sub.name}</CardTitle>
-										<CardDescription className="font-mono text-[11px] leading-none">{sub.uuid}</CardDescription>
+										<CardTitle className="text-lg leading-snug font-bold">{sub.name}</CardTitle>
+										<CardDescription className="font-mono text-[11px] leading-none">
+											{sub.uuid}
+										</CardDescription>
 									</div>
 
 									<div className="flex flex-wrap gap-2 pt-1">
@@ -134,7 +142,7 @@ export function SubOrgsDashboard() {
 									</div>
 								</CardHeader>
 
-								<CardContent className="space-y-3 px-4 pb-4 pt-4 sm:px-6">
+								<CardContent className="space-y-3 px-4 pt-4 pb-4 sm:px-6">
 									<div className="space-y-0.5">
 										<div className="flex items-center justify-between text-sm">
 											<span className="text-muted-foreground">Owner</span>
@@ -157,7 +165,7 @@ export function SubOrgsDashboard() {
 									<Separator />
 
 									<div className="space-y-2.5">
-										<p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
+										<p className="flex items-center gap-2 text-[11px] font-bold tracking-wide uppercase">
 											<Lock className="size-3.5" />
 											Credentials
 										</p>
@@ -192,7 +200,9 @@ function SubOrgCredentialsFields({ subOrgId }: { subOrgId: string }) {
 	}
 
 	if (isError) {
-		return <p className="text-sm text-destructive">{error.message ?? "Failed to load credentials."}</p>
+		return (
+			<p className="text-destructive text-sm">{error.message ?? "Failed to load credentials."}</p>
+		)
 	}
 
 	if (!clientKey || !clientSecret) {
@@ -231,7 +241,12 @@ function SubOrgCredentialsFields({ subOrgId }: { subOrgId: string }) {
 					>
 						<CopyIcon className="size-4" />
 					</Button>
-					<Button type="button" variant="ghost" size="icon-sm" onClick={() => setRevealKey(k => !k)}>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						onClick={() => setRevealKey(k => !k)}
+					>
 						{revealKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
 					</Button>
 				</div>
@@ -260,7 +275,12 @@ function SubOrgCredentialsFields({ subOrgId }: { subOrgId: string }) {
 					>
 						<CopyIcon className="size-4" />
 					</Button>
-					<Button type="button" variant="ghost" size="icon-sm" onClick={() => setRevealSecret(s => !s)}>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						onClick={() => setRevealSecret(s => !s)}
+					>
 						{revealSecret ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
 					</Button>
 				</div>
@@ -294,7 +314,7 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	if (isLoading) {
 		return (
 			<>
-				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
+				<p className="text-[11px] font-bold tracking-wide uppercase">Members</p>
 				<p className="text-muted-foreground text-sm">Loading members…</p>
 			</>
 		)
@@ -303,8 +323,8 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	if (isError) {
 		return (
 			<>
-				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
-				<p className="text-sm text-destructive">{error.message ?? "Failed to load members."}</p>
+				<p className="text-[11px] font-bold tracking-wide uppercase">Members</p>
+				<p className="text-destructive text-sm">{error.message ?? "Failed to load members."}</p>
 			</>
 		)
 	}
@@ -312,11 +332,16 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	if (!ok) {
 		return (
 			<>
-				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
-				<p className="text-sm text-destructive">{message}</p>
+				<p className="text-[11px] font-bold tracking-wide uppercase">Members</p>
+				<p className="text-destructive text-sm">{message}</p>
 				{needsTokenEmail && (
 					<div className="mt-2 flex flex-col gap-2">
-						<Button type="button" variant="outline" size="sm" onClick={() => setSetTokenEmailOpen(true)}>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => setSetTokenEmailOpen(true)}
+						>
 							Set token email
 						</Button>
 						<Dialog open={setTokenEmailOpen} onOpenChange={setSetTokenEmailOpen}>
@@ -367,7 +392,7 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 	if (!count) {
 		return (
 			<>
-				<p className="text-[11px] font-bold uppercase tracking-wide">Members</p>
+				<p className="text-[11px] font-bold tracking-wide uppercase">Members</p>
 				<p className="text-muted-foreground text-sm">No members yet.</p>
 			</>
 		)
@@ -375,8 +400,10 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 
 	return (
 		<>
-			<p className="text-[11px] font-bold uppercase tracking-wide">Members {count > 0 ? `(${count})` : ""}</p>
-			<div className="max-h-44 overflow-y-auto overflow-x-auto rounded-md border border-border/60">
+			<p className="text-[11px] font-bold tracking-wide uppercase">
+				Members {count > 0 ? `(${count})` : ""}
+			</p>
+			<div className="border-border/60 max-h-44 overflow-x-auto overflow-y-auto rounded-md border">
 				<Table className="min-w-full text-sm">
 					<TableHeader>
 						<TableRow className="bg-muted/60 hover:bg-muted/60">
@@ -389,14 +416,20 @@ function SubOrgMembersTable({ subOrgId }: { subOrgId: string }) {
 					<TableBody>
 						{members.map(m => (
 							<TableRow key={m.key} className="[&_td]:py-2">
-								<TableCell className="max-w-[120px] truncate py-2 font-medium sm:max-w-none" title={m.name}>
+								<TableCell
+									className="max-w-[120px] truncate py-2 font-medium sm:max-w-none"
+									title={m.name}
+								>
 									{m.name}
 								</TableCell>
-								<TableCell className="max-w-[140px] truncate py-2 font-mono text-[11px] sm:max-w-none" title={m.email}>
+								<TableCell
+									className="max-w-[140px] truncate py-2 font-mono text-[11px] sm:max-w-none"
+									title={m.email}
+								>
 									{m.email}
 								</TableCell>
-								<TableCell className="whitespace-nowrap py-2">{m.role}</TableCell>
-								<TableCell className="text-right whitespace-nowrap py-2">
+								<TableCell className="py-2 whitespace-nowrap">{m.role}</TableCell>
+								<TableCell className="py-2 text-right whitespace-nowrap">
 									<Badge
 										variant="secondary"
 										className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
@@ -421,7 +454,7 @@ function SubOrgCreditsCard({ subOrgId }: { subOrgId: string }) {
 
 	if (isLoading) {
 		return (
-			<div className="rounded-lg bg-muted/30 px-4 py-3">
+			<div className="bg-muted/30 rounded-lg px-4 py-3">
 				<p className="text-sm font-medium">Credits</p>
 				<p className="text-muted-foreground text-[11px]">Checking…</p>
 			</div>
@@ -430,7 +463,7 @@ function SubOrgCreditsCard({ subOrgId }: { subOrgId: string }) {
 
 	if (isError || data?.credits == null) {
 		return (
-			<div className="rounded-lg bg-muted/30 px-4 py-3">
+			<div className="bg-muted/30 rounded-lg px-4 py-3">
 				<p className="text-sm font-medium">Credits</p>
 				<p className="text-muted-foreground text-[11px]">Unavailable</p>
 			</div>
@@ -442,7 +475,7 @@ function SubOrgCreditsCard({ subOrgId }: { subOrgId: string }) {
 	const remaining = data.credits ?? 0
 
 	return (
-		<div className="rounded-lg bg-muted/30 px-4 py-3">
+		<div className="bg-muted/30 rounded-lg px-4 py-3">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
 				<div className="min-w-0">
 					<p className="text-sm font-medium">Credits</p>
@@ -485,20 +518,20 @@ function UploadPhotoDialog({ subOrgUuid, onSuccess }: UploadPhotoDialogProps) {
 			const form = new FormData()
 			form.set("photo", photo, photo.name)
 
-			const res = await fetch(`/api/doconchain/organizations/sub/${encodeURIComponent(subOrgUuid)}`, {
-				method: "PUT",
-				body: form,
-			})
+			const res = await fetch(
+				`/api/doconchain/organizations/sub/${encodeURIComponent(subOrgUuid)}`,
+				{
+					method: "PUT",
+					body: form,
+				}
+			)
 			const json = (await res.json().catch(() => null)) as null | { error?: string }
 			if (!res.ok) {
 				throw new Error(json?.error || `Failed to upload photo (${res.status}).`)
 			}
 
 			toast.success("Photo updated.")
-			await Promise.all([
-				utils.subOrgs.list.invalidate(),
-				utils.subOrgs.credits.invalidate(),
-			])
+			await Promise.all([utils.subOrgs.list.invalidate(), utils.subOrgs.credits.invalidate()])
 			onSuccess()
 			setOpen(false)
 		} catch (err) {
@@ -519,8 +552,8 @@ function UploadPhotoDialog({ subOrgUuid, onSuccess }: UploadPhotoDialogProps) {
 				<DialogHeader>
 					<DialogTitle>Upload sub-org photo</DialogTitle>
 					<DialogDescription>
-						Choose an image to use as the branding photo for this sub-org. It will appear on the card
-						and in DocOnChain. Max 5MB.
+						Choose an image to use as the branding photo for this sub-org. It will appear on the
+						card and in DocOnChain. Max 5MB.
 					</DialogDescription>
 				</DialogHeader>
 				<form onSubmit={handleSubmit} className="grid gap-4 py-4">
@@ -551,4 +584,3 @@ function UploadPhotoDialog({ subOrgUuid, onSuccess }: UploadPhotoDialogProps) {
 		</Dialog>
 	)
 }
-

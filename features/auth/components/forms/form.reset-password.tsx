@@ -6,6 +6,7 @@ import { LoaderIcon } from "lucide-react"
 import { useForm, type SubmitHandler } from "react-hook-form"
 import { toast } from "sonner"
 
+import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 import { Button } from "@/core/components/ui/button"
 import {
 	Form,
@@ -21,8 +22,6 @@ import { trpc } from "@/services/trpc/client"
 
 import { resetPasswordSchema, type ResetPasswordSchema } from "@/features/auth/api/auth.schemas"
 import { FormResponse } from "@/features/auth/components/ui/form-response"
-
-import { PasswordRequirementsChecklist } from "@/core/components/password-requirements-checklist"
 
 export const ResetPasswordForm = ({ token }: { token?: string }) => {
 	const router = useRouter()

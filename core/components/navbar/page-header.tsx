@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { type Route } from "next"
+import Link from "next/link"
 import { type UrlObject } from "url"
 
 import { SidebarTrigger } from "@/core/components/animate-ui/components/radix/sidebar"

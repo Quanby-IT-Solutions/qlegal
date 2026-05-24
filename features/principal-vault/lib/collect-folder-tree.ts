@@ -36,7 +36,10 @@ export async function listAllFilesInFolderTree(
 ) {
 	const folderIds = await collectDescendantFolderIds(dbClient, rootFolderId, ownerUserId)
 	return dbClient.query.principalVaultFiles.findMany({
-		where: and(eq(principalVaultFiles.userId, ownerUserId), inArray(principalVaultFiles.folderId, folderIds)),
+		where: and(
+			eq(principalVaultFiles.userId, ownerUserId),
+			inArray(principalVaultFiles.folderId, folderIds)
+		),
 		orderBy: [asc(principalVaultFiles.name)],
 		columns: {
 			id: true,
@@ -59,7 +62,10 @@ export async function relativeFolderPathFromShareRoot(
 	let current: string | null = fileFolderId
 	while (current && current !== shareRootFolderId) {
 		const row = await dbClient.query.principalVaultFolders.findFirst({
-			where: and(eq(principalVaultFolders.id, current), eq(principalVaultFolders.userId, ownerUserId)),
+			where: and(
+				eq(principalVaultFolders.id, current),
+				eq(principalVaultFolders.userId, ownerUserId)
+			),
 			columns: { name: true, parentId: true },
 		})
 		if (!row) break

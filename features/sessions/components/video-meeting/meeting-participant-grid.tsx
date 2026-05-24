@@ -9,7 +9,10 @@ interface MeetingParticipantGridProps {
 	presenterId: string | null
 }
 
-export function MeetingParticipantGrid({ participantIds, presenterId }: MeetingParticipantGridProps) {
+export function MeetingParticipantGrid({
+	participantIds,
+	presenterId,
+}: MeetingParticipantGridProps) {
 	if (participantIds.length === 0) {
 		return (
 			<Card className="mx-auto max-w-xl shadow-md">

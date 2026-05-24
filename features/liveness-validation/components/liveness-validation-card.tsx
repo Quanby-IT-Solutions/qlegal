@@ -91,7 +91,7 @@ export function LivenessValidationCard({
 							onClick={handleStartVerification}
 							disabled={isPending}
 						>
-							<div className="bg-primary-foreground/15 flex size-9 shrink-0 items-center justify-center rounded-md border border-primary-foreground/20 sm:size-10">
+							<div className="bg-primary-foreground/15 border-primary-foreground/20 flex size-9 shrink-0 items-center justify-center rounded-md border sm:size-10">
 								{isPending ? (
 									<Loader2 className="size-5 animate-spin" />
 								) : (

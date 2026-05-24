@@ -1,22 +1,21 @@
 import { TRPCError } from "@trpc/server"
 import { desc, eq } from "drizzle-orm"
 
-import { doconchainSubOrganizations } from "@/services/drizzle/schema/doconchain-sub-organizations"
-import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
-import { env } from "@/env"
-import { createDoconchainSubOrganization } from "@/services/doconchain/organization/create-sub-organization"
+import { getDoconchainApiTokenWithEnterpriseCreds } from "@/services/doconchain/auth/generate-token"
 import { autoJoinMemberInDoconchainOrganization } from "@/services/doconchain/organization/auto-join-member"
-import {
-	findOrganizationMemberIdByEmail,
-} from "@/services/doconchain/organization/get-parent-org-members"
+import { createDoconchainSubOrganization } from "@/services/doconchain/organization/create-sub-organization"
+import { findOrganizationMemberIdByEmail } from "@/services/doconchain/organization/get-parent-org-members"
 import { getDoconchainSubOrgCredits } from "@/services/doconchain/organization/get-sub-org-credits"
 import { getDoconchainSubOrgMembers } from "@/services/doconchain/organization/get-sub-org-members"
 import { getDoconchainSubOrganizationDetails } from "@/services/doconchain/organization/get-sub-organization"
 import { moveDoconchainMemberToSubOrg } from "@/services/doconchain/organization/move-member-to-sub-org"
 import { transferDoconchainCreditsToSubOrg } from "@/services/doconchain/organization/transfer-credits"
-import { getDoconchainApiTokenWithEnterpriseCreds } from "@/services/doconchain/auth/generate-token"
-import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
 import { users } from "@/services/drizzle/schema/auth"
+import { doconchainSubOrganizations } from "@/services/drizzle/schema/doconchain-sub-organizations"
+import { enpProfiles } from "@/services/drizzle/schema/enp-profiles"
+import { createTRPCRouter, protectedProcedure } from "@/services/trpc/init"
+
+import { env } from "@/env"
 
 import {
 	addMemberToSubOrgSchema,
@@ -89,11 +88,18 @@ const doconchain = {
 		clientKey?: string | null
 		clientSecret?: string | null
 		enpEmail?: string | null
-	}) => Promise<{ credits: number | null; totalCredits: number | null; usedCredits: number | null }>,
+	}) => Promise<{
+		credits: number | null
+		totalCredits: number | null
+		usedCredits: number | null
+	}>,
 }
 
 function requireManagementRole(ctx: { session: { user: { role?: string } } }) {
-	if (!ctx.session?.user?.role || !ADMIN_OR_ENA.includes(ctx.session.user.role as (typeof ADMIN_OR_ENA)[number])) {
+	if (
+		!ctx.session?.user?.role ||
+		!ADMIN_OR_ENA.includes(ctx.session.user.role as (typeof ADMIN_OR_ENA)[number])
+	) {
 		throw new TRPCError({
 			code: "FORBIDDEN",
 			message: "Only admins or ENA can manage sub-organizations.",
@@ -189,7 +195,7 @@ export const subOrgsRouter = createTRPCRouter({
 						key: email,
 						email,
 						name: displayName,
-						role: ((m.access_level ?? m.role) ?? "").trim() || "Member",
+						role: (m.access_level ?? m.role ?? "").trim() || "Member",
 						status: (m.status ?? "").trim() || "",
 					}
 				})
@@ -228,39 +234,41 @@ export const subOrgsRouter = createTRPCRouter({
 		}
 	}),
 
-	credentials: protectedProcedure.input(getSubOrgCredentialsSchema).query(async ({ ctx, input }) => {
-		requireManagementRole(ctx)
+	credentials: protectedProcedure
+		.input(getSubOrgCredentialsSchema)
+		.query(async ({ ctx, input }) => {
+			requireManagementRole(ctx)
 
-		const subOrgId = (input as { subOrgId: string }).subOrgId
-		const subOrg = await ctx.db.query.doconchainSubOrganizations.findFirst({
-			where: eq(doconchainSubOrganizations.id, subOrgId),
-		})
-
-		if (!subOrg) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "Sub-organization not found.",
+			const subOrgId = (input as { subOrgId: string }).subOrgId
+			const subOrg = await ctx.db.query.doconchainSubOrganizations.findFirst({
+				where: eq(doconchainSubOrganizations.id, subOrgId),
 			})
-		}
 
-		// Prefer stored values (recorded at create time), but fall back to DocOnChain API.
-		if (subOrg.clientKey && subOrg.clientSecret) {
+			if (!subOrg) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Sub-organization not found.",
+				})
+			}
+
+			// Prefer stored values (recorded at create time), but fall back to DocOnChain API.
+			if (subOrg.clientKey && subOrg.clientSecret) {
+				return {
+					subOrgId: subOrg.id,
+					subOrgUuid: subOrg.uuid,
+					clientKey: subOrg.clientKey,
+					clientSecret: subOrg.clientSecret,
+				}
+			}
+
+			const details = await doconchain.getSubOrgDetails({ subOrganizationUuid: subOrg.uuid })
 			return {
 				subOrgId: subOrg.id,
 				subOrgUuid: subOrg.uuid,
-				clientKey: subOrg.clientKey,
-				clientSecret: subOrg.clientSecret,
+				clientKey: details.clientKey,
+				clientSecret: details.clientSecret,
 			}
-		}
-
-		const details = await doconchain.getSubOrgDetails({ subOrganizationUuid: subOrg.uuid })
-		return {
-			subOrgId: subOrg.id,
-			subOrgUuid: subOrg.uuid,
-			clientKey: details.clientKey,
-			clientSecret: details.clientSecret,
-		}
-	}),
+		}),
 
 	credits: protectedProcedure.input(getSubOrgCreditsSchema).query(async ({ ctx, input }) => {
 		requireManagementRole(ctx)
@@ -389,7 +397,10 @@ export const subOrgsRouter = createTRPCRouter({
 			columns: { firstName: true, middleName: true, lastName: true },
 		})
 		const localFullName = localUser
-			? [localUser.firstName, localUser.middleName, localUser.lastName].filter(Boolean).join(" ").trim()
+			? [localUser.firstName, localUser.middleName, localUser.lastName]
+					.filter(Boolean)
+					.join(" ")
+					.trim()
 			: ""
 
 		// Parent org: from env for now; can later come from subOrg.parentOrgId or input

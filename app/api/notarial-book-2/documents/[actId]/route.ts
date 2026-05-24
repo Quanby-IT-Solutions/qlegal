@@ -20,19 +20,21 @@ export async function GET(
 		const { db } = await import("@/services/drizzle/db")
 		const { notarialActs, notarialBooks } = await import("@/services/drizzle/schema/notarial-book")
 		const { users } = await import("@/services/drizzle/schema/auth")
-		const { downloadDoconchainSealedProject } = await import(
-			"@/services/doconchain/projects/download-sealed-project"
-		)
-		const { getDoconchainProjectDetails } = await import(
-			"@/services/doconchain/projects/get-project-details"
-		)
+		const { downloadDoconchainSealedProject } =
+			await import("@/services/doconchain/projects/download-sealed-project")
+		const { getDoconchainProjectDetails } =
+			await import("@/services/doconchain/projects/get-project-details")
 
 		// ENP-only
 		const user = await db.query.users.findFirst({
 			where: eq(users.id, session.user.id),
 			columns: { role: true, email: true },
 		})
-		if (String(user?.role ?? "").trim().toUpperCase() !== "ENP") {
+		if (
+			String(user?.role ?? "")
+				.trim()
+				.toUpperCase() !== "ENP"
+		) {
 			return new NextResponse("Forbidden", { status: 403 })
 		}
 		const enpEmail = (user?.email ?? "").trim().toLowerCase()
@@ -48,7 +50,8 @@ export async function GET(
 			where: eq(notarialBooks.id, act.notarialBookId),
 			columns: { enpId: true },
 		})
-		if (!book || book.enpId !== session.user.id) return new NextResponse("Forbidden", { status: 403 })
+		if (!book || book.enpId !== session.user.id)
+			return new NextResponse("Forbidden", { status: 403 })
 
 		const projectUuid = (act.docoChainProjectUuid ?? "").trim()
 		if (!projectUuid) return new NextResponse("Missing DocOnChain project UUID", { status: 404 })
@@ -57,13 +60,16 @@ export async function GET(
 		const status = await getDoconchainProjectDetails({ projectUuid, email: enpEmail })
 		const statusUpper = String(status.projectStatus ?? "").toUpperCase()
 		const isCompleted = statusUpper === "COMPLETED" || (status.completedAt ?? null) !== null
-		if (!isCompleted) return new NextResponse("Document is still being processed...", { status: 425 })
+		if (!isCompleted)
+			return new NextResponse("Document is still being processed...", { status: 425 })
 
 		const result = await downloadDoconchainSealedProject({ projectUuid, email: enpEmail })
 
 		const download = request.nextUrl.searchParams.get("download")
 		const wantsDownload = download === "1" || download?.toLowerCase() === "true"
-		const baseName = act.documentName?.trim() ? act.documentName.trim() : `notarized-document-${projectUuid}.pdf`
+		const baseName = act.documentName?.trim()
+			? act.documentName.trim()
+			: `notarized-document-${projectUuid}.pdf`
 		const filename = baseName.toLowerCase().endsWith(".pdf") ? baseName : `${baseName}.pdf`
 
 		return new NextResponse(new Uint8Array(result.buffer), {
@@ -75,8 +81,10 @@ export async function GET(
 		})
 	} catch (error) {
 		console.error("Notarial book 2 document stream error:", error)
-		const status = error instanceof Error ? (error as Error & { status?: number }).status : undefined
-		if (status === 425) return new NextResponse("Document is still being processed...", { status: 425 })
+		const status =
+			error instanceof Error ? (error as Error & { status?: number }).status : undefined
+		if (status === 425)
+			return new NextResponse("Document is still being processed...", { status: 425 })
 		if (status === 404) return new NextResponse("Notarized document not found", { status: 404 })
 		return new NextResponse("Internal server error", { status: 500 })
 	}
